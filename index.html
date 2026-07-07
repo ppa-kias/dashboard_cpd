@@ -127,6 +127,7 @@
   }
   details>summary{list-style:none;cursor:pointer;}
   details>summary::-webkit-details-marker{display:none;}
+  .pick-row:hover{background:var(--surface);}
   /* infografik fakulti */
   .info-head{background:linear-gradient(120deg,var(--brand-deep),var(--brand));color:#fff;padding:20px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
   .info-badge{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.15);display:grid;place-items:center;font-family:'Fraunces',serif;font-weight:600;font-size:19px;flex:none;}
@@ -706,7 +707,8 @@ function breakdownHTML(recs, pid, thn){
     if(!items.length) return;
     html+=`<div class="catlbl">${k}</div><div>`;
     items.forEach(r=>{
-      html+=`<span class="chip">${esc(r.kursus)} · <b>${fmt(r.jam)} jam</b> <button onclick="hapusRekod(${r.id})" title="Padam rekod" style="border:none;background:none;cursor:pointer;color:var(--clay);padding:0 0 0 2px;line-height:1;">×</button></span>`;
+      const td=r.tarikh?` · <span style="color:var(--muted);">${fmtTarikh(r.tarikh)}</span>`:'';
+      html+=`<span class="chip">${esc(r.kursus)} · <b>${fmt(r.jam)} jam</b>${td} <button onclick="hapusRekod(${r.id})" title="Padam rekod" style="border:none;background:none;cursor:pointer;color:var(--clay);padding:0 0 0 2px;line-height:1;">×</button></span>`;
     });
     html+='</div>';
   });
@@ -806,43 +808,110 @@ function senaraiTahun(){ const a=[]; for(let y=TAHUN_MIN;y<=TAHUN_MAX;y++) a.pus
 function optionsTahun(sel){ return senaraiTahun().map(t=>`<option value="${t}" ${t==sel?'selected':''}>${t}</option>`).join(''); }
 
 /* ----- Rekod Latihan ----- */
-function openRekod(pid){
+let rekodPilih = new Set();
+function openRekod(pidPra){
   const thn=DB.tahunSemasa;
-  const kursusSedia=[...new Set(DB.rekod.filter(r=>r.tahun===thn).map(r=>r.kursus))].sort();
-  openModal('Tambah Rekod Latihan','Masukkan satu aktiviti CPD bagi seorang pensyarah.',`
+  const kursusSedia=[...new Set(DB.rekod.map(r=>r.kursus))].filter(Boolean).sort();
+  rekodPilih = new Set(pidPra ? [pidPra] : []);
+  const prafak = pidPra ? (DB.pensyarah.find(p=>p.id===pidPra)||{}).fakulti : '';
+  openModal('Tambah Rekod Latihan','Masukkan butiran satu aktiviti CPD, kemudian pilih seorang atau lebih pensyarah yang terlibat.',`
     <div style="display:grid;gap:14px;">
-      <div style="display:grid;grid-template-columns:1fr 110px;gap:12px;">
-        <div><label class="fld">Pensyarah</label><select id="r_pid">${optionsPensyarah(pid)}</select></div>
+      <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;">
+        <div><label class="fld">Kategori program</label><select id="r_kat">${optionsKat('Pembangunan Staf Akademik')}</select></div>
         <div><label class="fld">Tahun</label><select id="r_thn">${optionsTahun(thn)}</select></div>
       </div>
-      <div><label class="fld">Kategori program</label><select id="r_kat">${optionsKat('Pembangunan Staf Akademik')}</select></div>
       <div>
         <label class="fld">Nama kursus / bengkel</label>
         <input type="text" id="r_kursus" list="kursusList" placeholder="cth. Bengkel Penyelarasan Rubrik Analitik" autocomplete="off">
         <datalist id="kursusList">${kursusSedia.map(k=>`<option value="${esc(k)}">`).join('')}</datalist>
       </div>
-      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="fld">Tarikh aktiviti</label><input type="date" id="r_tarikh" onchange="selaraskanTahun()"></div>
         <div><label class="fld">Jam CPD</label><input type="number" id="r_jam" min="0" step="0.5" placeholder="cth. 6"></div>
+      </div>
+      <div>
+        <label class="fld">Pensyarah terlibat (pilih seorang atau lebih)</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <select id="r_fakfil" style="width:auto;flex:1;min-width:150px;" onchange="renderPilihPensyarah()">
+            <option value="semua">Semua fakulti</option>
+            ${FAK_ORDER.map(f=>`<option value="${f}" ${f===prafak?'selected':''}>${f} - ${FAK_NAMA[f]}</option>`).join('')}
+          </select>
+          <input type="search" id="r_cari" placeholder="Cari nama..." style="flex:1;min-width:130px;" oninput="renderPilihPensyarah()">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px;">
+          <button type="button" class="btn btn-ghost" style="padding:6px 10px;font-size:12.5px;" onclick="pilihSemuaPensyarah()">Pilih / nyahpilih semua (ditapis)</button>
+          <span class="mini" id="r_kira" style="font-weight:700;color:var(--brand-deep);white-space:nowrap;"></span>
+        </div>
+        <div id="r_senarai" style="max-height:230px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:6px;background:var(--surface-2);"></div>
       </div>
       <p class="mini" id="r_err" style="color:var(--clay);display:none;"></p>
     </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
-     <button class="btn btn-primary" onclick="simpanRekod()">Simpan Rekod</button>`);
+     <button class="btn btn-primary" id="r_simpan" onclick="simpanRekod()">Simpan Rekod</button>`);
+  renderPilihPensyarah();
   setTimeout(()=>document.getElementById('r_kursus').focus(),60);
 }
+function renderPilihPensyarah(){
+  const fak=document.getElementById('r_fakfil').value;
+  const q=(document.getElementById('r_cari').value||'').toLowerCase().trim();
+  const list=DB.pensyarah.filter(p=>{
+    if(fak!=='semua' && p.fakulti!==fak) return false;
+    if(q && !p.nama.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>FAK_ORDER.indexOf(a.fakulti)-FAK_ORDER.indexOf(b.fakulti)||a.nama.localeCompare(b.nama));
+  const cont=document.getElementById('r_senarai');
+  if(!list.length){ cont.innerHTML='<div class="mini" style="padding:14px;text-align:center;">Tiada pensyarah ditemui.</div>'; kemasKiraPilih(); return; }
+  let html='', fakSekarang='';
+  list.forEach(p=>{
+    if(fak==='semua' && p.fakulti!==fakSekarang){ fakSekarang=p.fakulti; html+=`<div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 8px 4px;">${p.fakulti} - ${esc(FAK_NAMA[p.fakulti]||'')}</div>`; }
+    const on=rekodPilih.has(p.id);
+    html+=`<label class="pick-row" style="display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:9px;cursor:pointer;">
+      <input type="checkbox" ${on?'checked':''} onchange="togglePilih(${p.id},this.checked)" style="width:auto;flex:none;">
+      <span style="flex:1;min-width:0;"><span style="font-weight:600;font-size:13.5px;">${esc(p.nama)}</span> <span class="mini">${esc(p.jawatan||'')}</span></span>
+      <span class="badge" style="background:var(--surface);color:var(--ink-2);border:1px solid var(--line);flex:none;">${p.fakulti}</span>
+    </label>`;
+  });
+  cont.innerHTML=html;
+  kemasKiraPilih();
+}
+function togglePilih(pid,on){ if(on) rekodPilih.add(pid); else rekodPilih.delete(pid); kemasKiraPilih(); }
+function pilihSemuaPensyarah(){
+  const fak=document.getElementById('r_fakfil').value;
+  const q=(document.getElementById('r_cari').value||'').toLowerCase().trim();
+  const list=DB.pensyarah.filter(p=>(fak==='semua'||p.fakulti===fak) && (!q||p.nama.toLowerCase().includes(q)));
+  const semua=list.length>0 && list.every(p=>rekodPilih.has(p.id));
+  list.forEach(p=>{ if(semua) rekodPilih.delete(p.id); else rekodPilih.add(p.id); });
+  renderPilihPensyarah();
+}
+function kemasKiraPilih(){
+  const k=document.getElementById('r_kira'); if(k) k.textContent=rekodPilih.size+' pensyarah dipilih';
+  const b=document.getElementById('r_simpan'); if(b) b.textContent=rekodPilih.size>1?('Simpan untuk '+rekodPilih.size+' pensyarah'):'Simpan Rekod';
+}
+function selaraskanTahun(){
+  const t=document.getElementById('r_tarikh').value;
+  if(t){ const y=+t.slice(0,4); const sel=document.getElementById('r_thn'); if(y>=2023 && y<=2050){ sel.value=String(y); } }
+}
+function fmtTarikh(iso){
+  if(!iso) return '';
+  const b=String(iso).slice(0,10).split('-');
+  return b.length===3 ? (b[2]+'/'+b[1]+'/'+b[0]) : String(iso);
+}
 function simpanRekod(){
-  const pid=+document.getElementById('r_pid').value;
   const thn=+document.getElementById('r_thn').value;
   const kat=document.getElementById('r_kat').value;
   const kursus=document.getElementById('r_kursus').value.trim();
+  const tarikh=document.getElementById('r_tarikh').value||'';
   const jam=parseFloat(document.getElementById('r_jam').value);
   const err=document.getElementById('r_err');
-  if(!kursus){ err.textContent='Sila isi nama kursus.'; err.style.display='block'; return; }
-  if(!(jam>0)){ err.textContent='Sila isi jam CPD (lebih daripada 0).'; err.style.display='block'; return; }
-  DB.rekod.push({id:nextRid(),pid,tahun:thn,kategori:kat,kursus,jam});
-  if(!DB.tahunSenarai.includes(thn)) DB.tahunSenarai.push(thn);
-  saveDB(); refreshYearSel(); closeModal(); render();
-  toast('Rekod latihan ditambah.');
+  const ralat=(m)=>{ err.textContent=m; err.style.display='block'; };
+  if(!kursus){ ralat('Sila isi nama kursus atau bengkel.'); return; }
+  if(!(jam>0)){ ralat('Sila isi jam CPD (lebih daripada 0).'); return; }
+  if(rekodPilih.size===0){ ralat('Sila pilih sekurang-kurangnya seorang pensyarah.'); return; }
+  let bil=0;
+  rekodPilih.forEach(pid=>{ DB.rekod.push({id:nextRid(),pid,tahun:thn,tarikh,kategori:kat,kursus,jam}); bil++; });
+  if(thn!==DB.tahunSemasa){ DB.tahunSemasa=thn; refreshYearSel(); }
+  saveDB(); closeModal(); render();
+  toast(bil>1?('Rekod latihan ditambah untuk '+bil+' pensyarah.'):'Rekod latihan ditambah.');
 }
 function hapusRekod(rid){
   const r=DB.rekod.find(x=>x.id===rid); if(!r) return;
@@ -936,7 +1005,7 @@ function openImport(){
     <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:14px;">
       <div class="mini" style="font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px;">Susunan lajur fail CSV</div>
       <div style="font-size:12.5px;color:var(--ink-2);line-height:1.8;">
-        <b>Nama</b> · <b>Fakulti</b> (FPIB / FUQS / FSM / FPPI / PPT) · <b>Jawatan</b> · <b>Status Jawatan</b> · <b>Tahun</b> · <b>Kategori</b> · <b>Kursus</b> · <b>Jam</b>
+        <b>Nama</b> · <b>Fakulti</b> (FPIB / FUQS / FSM / FPPI / PPT) · <b>Jawatan</b> · <b>Status Jawatan</b> · <b>Tahun</b> · <b>Tarikh</b> · <b>Kategori</b> · <b>Kursus</b> · <b>Jam</b>
       </div>
       <div class="mini" style="margin-top:9px;line-height:1.6;">Pensyarah dipadankan mengikut nama. Jika nama belum wujud, pensyarah baharu dicipta secara automatik. Lajur <b>Nama</b>, <b>Tahun</b> dan <b>Jam</b> adalah wajib.</div>
     </div>
@@ -961,7 +1030,7 @@ function doImport(){
       if(!rows.length) throw new Error('kosong');
       const head=rows[0].map(h=>h.toLowerCase().trim());
       const idx=n=>head.findIndex(h=>h.includes(n));
-      const iN=idx('nama'),iF=idx('fakulti'),iJw=idx('jawatan'),iS=idx('status'),iT=idx('tahun'),iK=idx('kategori'),iKu=idx('kursus'),iJ=idx('jam');
+      const iN=idx('nama'),iF=idx('fakulti'),iJw=idx('jawatan'),iS=idx('status'),iT=idx('tahun'),iTk=idx('tarikh'),iK=idx('kategori'),iKu=idx('kursus'),iJ=idx('jam');
       if(iN<0||iT<0||iJ<0) throw new Error('lajur Nama/Tahun/Jam tidak dijumpai');
       let add=0, np=0;
       const fmap=new Map(DB.pensyarah.map(p=>[norm(p.nama),p]));
@@ -974,7 +1043,8 @@ function doImport(){
         if(!thn||!(jam>0)) continue;
         const kat=(iK>=0&&KAT.includes(row[iK]))?row[iK]:'Lain-lain';
         const kursus=iKu>=0?(row[iKu]||'Latihan CPD'):'Latihan CPD';
-        DB.rekod.push({id:nextRid(),pid:p.id,tahun:thn,kategori:kat,kursus,jam});
+        const tarikh=iTk>=0?String(row[iTk]||'').slice(0,10):'';
+        DB.rekod.push({id:nextRid(),pid:p.id,tahun:thn,tarikh,kategori:kat,kursus,jam});
         if(!DB.tahunSenarai.includes(thn)) DB.tahunSenarai.push(thn);
         add++;
       }
@@ -1002,21 +1072,21 @@ function downloadFile(name,content,type){
 }
 function downloadTemplate(){
   const thn=DB.tahunSemasa;
-  const h=['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Kategori','Kursus','Jam'];
+  const h=['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh','Kategori','Kursus','Jam'];
   const ex=[
-    ['Dr. Ahmad bin Ismail','FPIB','Pensyarah','Tetap',thn,'Pembangunan Staf Akademik','Kursus Asas Pensyarah Baharu','6'],
-    ['Dr. Ahmad bin Ismail','FPIB','Pensyarah','Tetap',thn,'Pembangunan Koordinator Program','Bengkel Pemerkasaan Koordinator Program','4'],
-    ['Nurul binti Hassan','FSM','Pensyarah','Kontrak',thn,'Kerjasama Fakulti','Retreat Akademik','8'],
+    ['Dr. Ahmad bin Ismail','FPIB','Pensyarah','Tetap',thn,thn+'-02-18','Pembangunan Staf Akademik','Kursus Asas Pensyarah Baharu','6'],
+    ['Dr. Ahmad bin Ismail','FPIB','Pensyarah','Tetap',thn,thn+'-06-03','Pembangunan Koordinator Program','Bengkel Pemerkasaan Koordinator Program','4'],
+    ['Nurul binti Hassan','FSM','Pensyarah','Kontrak',thn,thn+'-09-02','Kerjasama Fakulti','Retreat Akademik','8'],
   ];
   downloadFile('templat_penyertaan_cpd.csv',[h,...ex].map(r=>r.map(csvEscape).join(',')).join('\n'));
   toast('Templat kosong dimuat turun.');
 }
 function downloadTemplatePensyarah(){
   const thn=DB.tahunSemasa;
-  const h=['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Kategori','Kursus','Jam'];
+  const h=['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh','Kategori','Kursus','Jam'];
   const rows=[h];
   DB.pensyarah.slice().sort((a,b)=>FAK_ORDER.indexOf(a.fakulti)-FAK_ORDER.indexOf(b.fakulti)||a.nama.localeCompare(b.nama))
-    .forEach(p=>rows.push([p.nama,p.fakulti,p.jawatan,p.status,thn,'','','']));
+    .forEach(p=>rows.push([p.nama,p.fakulti,p.jawatan,p.status,thn,'','','','']));
   downloadFile('templat_penyertaan_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
   toast('Templat berserta '+DB.pensyarah.length+' pensyarah dimuat turun.');
 }
@@ -1024,10 +1094,10 @@ function exportCSV(jenis){
   const thn=DB.tahunSemasa;
   let rows;
   if(jenis==='terperinci'){
-    rows=[['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Kategori','Kursus','Jam']];
+    rows=[['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh','Kategori','Kursus','Jam']];
     DB.rekod.filter(r=>r.tahun===thn).sort((a,b)=>a.pid-b.pid).forEach(r=>{
       const p=DB.pensyarah.find(x=>x.id===r.pid)||{};
-      rows.push([p.nama,p.fakulti,p.jawatan,p.status,r.tahun,r.kategori,r.kursus,r.jam]);
+      rows.push([p.nama,p.fakulti,p.jawatan,p.status,r.tahun,r.tarikh||'',r.kategori,r.kursus,r.jam]);
     });
   }else{
     rows=[['Bil','Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Jumlah Jam CPD','Sasaran','Jurang','Status']];
