@@ -128,6 +128,7 @@
   details>summary{list-style:none;cursor:pointer;}
   details>summary::-webkit-details-marker{display:none;}
   .pick-row:hover{background:var(--surface);}
+  body.papar .aksi-sunting{display:none !important;}
   /* infografik fakulti */
   .info-head{background:linear-gradient(120deg,var(--brand-deep),var(--brand));color:#fff;padding:20px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
   .info-badge{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.15);display:grid;place-items:center;font-family:'Fraunces',serif;font-weight:600;font-size:19px;flex:none;}
@@ -162,11 +163,12 @@
     </div>
     <div style="flex:1"></div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button id="syncPill" class="sync-pill" onclick="openDriveSetup()" title="Tetapan pangkalan data Google Drive">
+      <button id="syncPill" class="sync-pill" onclick="pillKlik()" title="Pangkalan data Google Drive">
         <span class="sync-dot"></span><span id="syncTxt" class="hide-sm">Drive</span>
       </button>
+      <span id="paparBadge" style="display:none;align-items:center;gap:6px;background:var(--gold-soft,#F3ECD9);color:var(--gold,#A9821B);border:1px solid #E4D5A8;border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Paparan sahaja</span>
       <select id="yearSel" style="width:auto;font-weight:700;padding-right:30px;" aria-label="Pilih tahun"></select>
-      <button class="btn btn-primary" onclick="openRekod()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="hide-sm">Rekod Latihan</span></button>
+      <button class="btn btn-primary aksi-sunting" onclick="openRekod()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="hide-sm">Rekod Latihan</span></button>
       <div class="dd">
         <button class="btn btn-ghost" onclick="toggleDD(event)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 12l-4-4m4 4l4-4M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3"/></svg><span class="hide-sm">Eksport</span></button>
         <div class="dd-menu" id="ddMenu">
@@ -176,15 +178,15 @@
           <div class="dd-sep"></div>
           <button onclick="openLaporan();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="9"/><rect x="12" y="5" width="3" height="13"/><rect x="17" y="12" width="3" height="6"/></svg>Laporan Fakulti / Program</button>
           <div class="dd-sep"></div>
-          <button onclick="openImport();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0-12l4 4m-4-4l-4 4M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3"/></svg>Import Data Penyertaan (CSV)</button>
-          <button onclick="openPensyarah();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/></svg>Tambah Pensyarah</button>
+          <button class="aksi-sunting" onclick="openImport();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0-12l4 4m-4-4l-4 4M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3"/></svg>Import Data Penyertaan (CSV)</button>
+          <button class="aksi-sunting" onclick="openPensyarah();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/></svg>Tambah Pensyarah</button>
           <div class="dd-sep"></div>
-          <button onclick="openDriveSetup();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 004 4h9a4 4 0 001-7.9A5 5 0 007 9a4 4 0 00-3 6z"/></svg>Sediakan Google Drive</button>
+          <button class="aksi-sunting" onclick="openDriveSetup();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 004 4h9a4 4 0 001-7.9A5 5 0 007 9a4 4 0 00-3 6z"/></svg>Sediakan Google Drive</button>
           <button onclick="driveLoad(false);closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 10-9-9"/><path d="M3 3v6h6"/></svg>Muat dari Google Drive</button>
-          <button onclick="drivePush(true);closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 019 9"/><path d="M21 21v-6h-6"/><path d="M3 12a9 9 0 019-9"/></svg>Segerak ke Google Drive</button>
+          <button class="aksi-sunting" onclick="drivePush(true);closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 019 9"/><path d="M21 21v-6h-6"/><path d="M3 12a9 9 0 019-9"/></svg>Segerak ke Google Drive</button>
           <div class="dd-sep"></div>
-          <button onclick="openTetapan();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7.6 1.6 1.6 0 00-1 1.5V22a2 2 0 01-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 010-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 014 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 010 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>Tetapan Sasaran</button>
-          <button onclick="confirmReset();closeDD()" style="color:var(--clay)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>Set Semula Data</button>
+          <button class="aksi-sunting" onclick="openTetapan();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7.6 1.6 1.6 0 00-1 1.5V22a2 2 0 01-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 010-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 014 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 010 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>Tetapan Sasaran</button>
+          <button class="aksi-sunting" onclick="confirmReset();closeDD()" style="color:var(--clay)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>Set Semula Data</button>
         </div>
       </div>
     </div>
@@ -364,10 +366,24 @@ function migrasiFakulti(){
 function saveDB(){ storage.set(STORE_KEY, JSON.stringify(DB)); drivePushDebounced(); }
 
 /* ============ PANGKALAN DATA GOOGLE DRIVE (Apps Script) ============ */
+/* TETAPAN TERBINA UNTUK PERKONGSIAN:
+   Isikan pautan dan token di sini supaya SEMUA pengguna yang membuka fail ini
+   terus melihat data terkini tanpa perlu menyediakannya sendiri. Cara paling
+   mudah ialah menggunakan butang "Muat turun fail untuk dikongsi" dalam
+   tetingkap Sediakan Google Drive. */
+const SYNC_TERBINA = {
+  url: '' /*URL_TERBINA*/,
+  token: '' /*TOKEN_TERBINA*/
+};
+const PAPAR_TERBINA = false /*PAPAR_TERBINA*/;
+let MOD_PAPAR = false;
 const SYNC_KEY='ppa_cpd_sync_v1';
 let SYNC={url:'',token:'',auto:true};
 let syncTimer=null;
-function loadSyncCfg(){ try{ const s=JSON.parse(storage.get(SYNC_KEY)||'{}'); SYNC=Object.assign(SYNC,s); }catch(e){} }
+function loadSyncCfg(){
+  try{ const s=JSON.parse(storage.get(SYNC_KEY)||'{}'); SYNC=Object.assign(SYNC,s); }catch(e){}
+  if(!SYNC.url && SYNC_TERBINA.url){ SYNC.url=SYNC_TERBINA.url; SYNC.token=SYNC_TERBINA.token; SYNC.auto=true; }
+}
 function saveSyncCfg(){ storage.set(SYNC_KEY, JSON.stringify(SYNC)); }
 function setSyncStatus(state, msg){
   const pill=document.getElementById('syncPill'); const txt=document.getElementById('syncTxt'); if(!pill) return;
@@ -404,12 +420,14 @@ async function driveLoad(senyap){
   }catch(err){ setSyncStatus('error',err.message); if(!senyap) toast('Gagal memuat dari Google Drive: '+err.message); return false; }
 }
 function drivePushDebounced(){
+  if(MOD_PAPAR) return;
   if(!SYNC.url || !SYNC.auto) return;
   clearTimeout(syncTimer);
   setSyncStatus('syncing','Perubahan akan disegerak');
   syncTimer=setTimeout(()=>drivePush(false), 1400);
 }
 async function drivePush(manual){
+  if(MOD_PAPAR){ if(manual) toast('Fail ini dalam mod paparan sahaja. Penyegerakan tidak dibenarkan.'); return false; }
   if(!SYNC.url){ if(manual) toast('Sila sediakan pautan Google Drive dahulu.'); return false; }
   setSyncStatus('syncing','Menyegerak ke Google Drive');
   try{
@@ -422,7 +440,9 @@ async function drivePush(manual){
     return true;
   }catch(err){ setSyncStatus('error',err.message); if(manual) toast('Gagal menyegerak: '+err.message); return false; }
 }
+function pillKlik(){ if(MOD_PAPAR) driveLoad(false); else openDriveSetup(); }
 function openDriveSetup(){
+  if(MOD_PAPAR) return;
   openModal('Pangkalan Data Google Drive',
     'Sambungkan dashboard kepada Google Sheets melalui Google Apps Script supaya data dikongsi dan disimpan dalam talian.',`
     <div style="display:grid;gap:14px;">
@@ -439,6 +459,14 @@ function openDriveSetup(){
       </label>
       <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;">
         <div class="mini" style="line-height:1.7;">Rujuk tutorial untuk menjana pautan ini melalui Google Sheets dan Apps Script. Pastikan penggunaan (deployment) ditetapkan kepada <b>Execute as: Me</b> dan <b>Who has access: Anyone</b>. Ingatan: sesiapa yang memiliki pautan dan token boleh membaca serta menulis data.</div>
+      </div>
+      <div style="background:var(--brand-soft);border:1px solid #CFE0DB;border-radius:12px;padding:13px 15px;">
+        <div style="font-weight:700;color:var(--brand-deep);font-size:13px;margin-bottom:5px;">Kongsi kepada orang lain</div>
+        <div class="mini" style="line-height:1.7;margin-bottom:10px;">Untuk membolehkan semua orang melihat data terkini secara automatik, muat turun salinan fail yang telah disematkan dengan pautan dan token ini, kemudian edarkan atau sematkan salinan tersebut pada Google Sites. Pengguna lain tidak perlu menyediakan apa-apa.</div>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);cursor:pointer;margin-bottom:10px;">
+          <input type="checkbox" id="sy_papar" style="width:auto;"> Mod paparan sahaja (orang lain hanya boleh melihat, tidak boleh menyunting)
+        </label>
+        <button type="button" class="btn btn-primary" style="width:100%;justify-content:center;" onclick="muatTurunFailDikongsi()">Muat turun fail untuk dikongsi</button>
       </div>
       <p class="mini" id="sy_msg"></p>
     </div>`,
@@ -471,6 +499,33 @@ async function ujiDrive(){
     msg.innerHTML='<span style="color:var(--brand-deep);font-weight:600;">Sambungan berjaya. '+bilP+' pensyarah, '+bilR+' rekod dalam Google Sheets.</span>';
     setSyncStatus('ok','Sambungan berjaya');
   }catch(err){ msg.innerHTML='<span style="color:var(--clay)">Sambungan gagal: '+esc(err.message)+'. Semak pautan, token, dan tetapan penggunaan.</span>'; setSyncStatus('error',err.message); }
+}
+async function muatTurunFailDikongsi(){
+  bacaBorangDrive_(); saveSyncCfg();
+  const msg=document.getElementById('sy_msg');
+  if(!SYNC.url){ msg.innerHTML='<span style="color:var(--clay)">Sila isi pautan Aplikasi Web dahulu sebelum menjana fail kongsi.</span>'; return; }
+  try{
+    const su=SYNC.url.replace(/'/g,"\\'"), st=(SYNC.token||'').replace(/'/g,"\\'");
+    const papar=!!(document.getElementById('sy_papar') && document.getElementById('sy_papar').checked);
+    const klon=document.documentElement.cloneNode(true);
+    const kosong=(sel)=>{ const el=klon.querySelector(sel); if(el) el.innerHTML=''; };
+    const bg=klon.querySelector('#modalBg'); if(bg) bg.classList.remove('show');
+    kosong('#modalBody'); kosong('#modalFoot'); kosong('#tbody'); kosong('#fakInfoCard');
+    const tst=klon.querySelector('#toast'); if(tst){ tst.textContent=''; tst.classList.remove('show'); }
+    let html='<!DOCTYPE html>\n'+klon.outerHTML;
+    if(html.indexOf('/*URL_TERBINA*/')<0) throw new Error('penanda tetapan tidak ditemui');
+    html=html.replace(/url:\s*'[^']*'\s*\/\*URL_TERBINA\*\//, "url: '"+su+"' /*URL_TERBINA*/");
+    html=html.replace(/token:\s*'[^']*'\s*\/\*TOKEN_TERBINA\*\//, "token: '"+st+"' /*TOKEN_TERBINA*/");
+    html=html.replace(/const PAPAR_TERBINA\s*=\s*(?:true|false)\s*\/\*PAPAR_TERBINA\*\//, "const PAPAR_TERBINA = "+(papar?'true':'false')+" /*PAPAR_TERBINA*/");
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=papar?'CPD_Pensyarah_paparan.html':'CPD_Pensyarah_dikongsi.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    msg.innerHTML='<span style="color:var(--brand-deep);font-weight:600;">Fail '+(papar?'paparan sahaja':'kongsi')+' dimuat turun. Edarkan atau sematkan fail ini pada Google Sites supaya semua orang melihat data terkini secara automatik.</span>';
+  }catch(err){
+    msg.innerHTML='<span style="color:var(--clay)">Tidak dapat menjana fail ('+esc(err.message)+'). Sila hubungi pentadbir untuk menyematkan tetapan secara manual.</span>';
+  }
 }
 
 function nextPid(){ DB._pid=(DB._pid||1); return DB._pid++; }
@@ -692,8 +747,8 @@ function renderTable(view, thn){
       <td><span class="badge b-${b}"><span class="dot" style="background:${TIER_COL[b]}"></span>${TIER_LBL[b]}</span></td>
       <td>
         <div style="display:flex;gap:2px;">
-          <button class="btn-quiet" title="Tambah latihan" style="padding:5px;" onclick="openRekod(${p.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-          <button class="btn-quiet" title="Sunting pensyarah" style="padding:5px;" onclick="openPensyarah(${p.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+          <button class="btn-quiet aksi-sunting" title="Tambah latihan" style="padding:5px;" onclick="openRekod(${p.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="btn-quiet aksi-sunting" title="Sunting pensyarah" style="padding:5px;" onclick="openPensyarah(${p.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
         </div>
       </td>
     </tr>
@@ -711,14 +766,14 @@ function breakdownHTML(recs, pid, thn){
     items.forEach(r=>{
       const jt=fmtJulatTarikh(r.tarikh,r.tarikhTamat);
       const td=jt?` · <span style="color:var(--muted);">${jt}</span>`:'';
-      html+=`<span class="chip">${esc(r.kursus)} · <b>${fmt(r.jam)} jam</b>${td} <button onclick="openEditRekod(${r.id})" title="Sunting rekod" style="border:none;background:none;cursor:pointer;color:var(--brand);padding:0 0 0 4px;line-height:1;font-size:13px;">&#9998;</button><button onclick="hapusRekod(${r.id})" title="Padam rekod" style="border:none;background:none;cursor:pointer;color:var(--clay);padding:0 0 0 4px;line-height:1;">×</button></span>`;
+      html+=`<span class="chip">${esc(r.kursus)} · <b>${fmt(r.jam)} jam</b>${td} <button class="aksi-sunting" onclick="openEditRekod(${r.id})" title="Sunting rekod" style="border:none;background:none;cursor:pointer;color:var(--brand);padding:0 0 0 4px;line-height:1;font-size:13px;">&#9998;</button><button class="aksi-sunting" onclick="hapusRekod(${r.id})" title="Padam rekod" style="border:none;background:none;cursor:pointer;color:var(--clay);padding:0 0 0 4px;line-height:1;">×</button></span>`;
     });
     html+='</div>';
   });
   const tot=recs.reduce((a,r)=>a+r.jam,0);
   html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:14px;align-items:center;">
     <span class="mini">Jumlah <b class="serif" style="font-size:15px;color:var(--brand-deep);">${fmt(tot)} jam</b> · ${recs.length} aktiviti</span>
-    <button class="btn btn-ghost" style="padding:6px 11px;font-size:12.5px;" onclick="openRekod(${pid})">+ Tambah latihan</button>
+    <button class="btn btn-ghost aksi-sunting" style="padding:6px 11px;font-size:12.5px;" onclick="openRekod(${pid})">+ Tambah latihan</button>
   </div>`;
   return html;
 }
@@ -813,6 +868,7 @@ function optionsTahun(sel){ return senaraiTahun().map(t=>`<option value="${t}" $
 /* ----- Rekod Latihan ----- */
 let rekodPilih = new Set();
 function openRekod(pidPra){
+  if(MOD_PAPAR) return;
   const thn=DB.tahunSemasa;
   const kursusSedia=[...new Set(DB.rekod.map(r=>r.kursus))].filter(Boolean).sort();
   rekodPilih = new Set(pidPra ? [pidPra] : []);
@@ -907,6 +963,7 @@ function fmtJulatTarikh(mula, tamat){
   return fmtTarikh(mula)+' hingga '+fmtTarikh(tamat);
 }
 function simpanRekod(){
+  if(MOD_PAPAR) return;
   const thn=+document.getElementById('r_thn').value;
   const kat=document.getElementById('r_kat').value;
   const kursus=document.getElementById('r_kursus').value.trim();
@@ -927,6 +984,7 @@ function simpanRekod(){
   toast(bil>1?('Rekod latihan ditambah untuk '+bil+' pensyarah.'):'Rekod latihan ditambah.');
 }
 function openEditRekod(rid){
+  if(MOD_PAPAR) return;
   const r=DB.rekod.find(x=>x.id===rid); if(!r) return;
   const p=DB.pensyarah.find(x=>x.id===r.pid)||{nama:'-'};
   const kursusSedia=[...new Set(DB.rekod.map(x=>x.kursus))].filter(Boolean).sort();
@@ -958,6 +1016,7 @@ function selaraskanTahunEdit(){
   if(t){ const y=+t.slice(0,4); const sel=document.getElementById('e_thn'); if(y>=2023 && y<=2050){ sel.value=String(y); } }
 }
 function simpanEditRekod(rid){
+  if(MOD_PAPAR) return;
   const r=DB.rekod.find(x=>x.id===rid); if(!r) return;
   const kat=document.getElementById('e_kat').value;
   const thn=+document.getElementById('e_thn').value;
@@ -976,12 +1035,14 @@ function simpanEditRekod(rid){
   toast('Rekod latihan dikemas kini.');
 }
 function hapusRekod(rid){
+  if(MOD_PAPAR) return;
   const r=DB.rekod.find(x=>x.id===rid); if(!r) return;
   DB.rekod=DB.rekod.filter(x=>x.id!==rid); saveDB(); render(); toast('Rekod dipadam.');
 }
 
 /* ----- Pensyarah ----- */
 function openPensyarah(pid){
+  if(MOD_PAPAR) return;
   const p=pid?DB.pensyarah.find(x=>x.id===pid):null;
   openModal(p?'Sunting Pensyarah':'Tambah Pensyarah', p?'Kemas kini maklumat pensyarah.':'Daftar pensyarah baharu ke dalam senarai induk.',`
     <div style="display:grid;gap:14px;">
@@ -999,6 +1060,7 @@ function openPensyarah(pid){
   setTimeout(()=>document.getElementById('p_nama').focus(),60);
 }
 function simpanPensyarah(pid){
+  if(MOD_PAPAR) return;
   const nama=document.getElementById('p_nama').value.trim();
   const err=document.getElementById('p_err');
   if(!nama){ err.textContent='Sila isi nama pensyarah.'; err.style.display='block'; return; }
@@ -1039,6 +1101,7 @@ function tambahTahun(){
 
 /* ----- Tetapan ----- */
 function openTetapan(){
+  if(MOD_PAPAR) return;
   openModal('Tetapan Sasaran CPD','Tetapkan sasaran jam CPD tahunan bagi setiap pensyarah.',`
     <label class="fld">Sasaran jam setahun</label>
     <input type="number" id="s_val" min="1" step="1" value="${DB.sasaran}">
@@ -1047,20 +1110,23 @@ function openTetapan(){
      <button class="btn btn-primary" onclick="simpanTetapan()">Simpan</button>`);
 }
 function simpanTetapan(){
+  if(MOD_PAPAR) return;
   const v=parseInt(document.getElementById('s_val').value,10);
   if(v>0){ DB.sasaran=v; saveDB(); closeModal(); render(); toast('Sasaran ditetapkan kepada '+v+' jam.'); }
 }
 
 /* ----- Reset ----- */
 function confirmReset(){
+  if(MOD_PAPAR) return;
   openModal('Set semula data?','Memadam semua perubahan dan memulihkan data benih asal (Laporan PPA 2024 & 2025). Tindakan ini tidak boleh dibatalkan.','',
     `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
      <button class="btn btn-danger" onclick="doReset()">Set semula</button>`);
 }
-function doReset(){ DB=seedToDB(SEED); saveDB(); refreshYearSel(); closeModal(); render(); toast('Data dipulihkan kepada keadaan asal.'); }
+function doReset(){ if(MOD_PAPAR) return; DB=seedToDB(SEED); saveDB(); refreshYearSel(); closeModal(); render(); toast('Data dipulihkan kepada keadaan asal.'); }
 
 /* ====================== IMPORT / EXPORT ====================== */
 function openImport(){
+  if(MOD_PAPAR) return;
   const thn=DB.tahunSemasa;
   openModal('Import Data Penyertaan Pensyarah (CSV)',
     'Muat naik fail CSV yang mengandungi rekod penyertaan latihan. Setiap baris mewakili satu penyertaan, iaitu satu kursus bagi seorang pensyarah.',`
@@ -1083,6 +1149,7 @@ function openImport(){
      <button class="btn btn-primary" onclick="doImport()">Import Rekod</button>`);
 }
 function doImport(){
+  if(MOD_PAPAR) return;
   const f=document.getElementById('imp_file').files[0];
   if(!f){ document.getElementById('imp_msg').innerHTML='<span style="color:var(--clay)">Sila pilih fail.</span>'; return; }
   const rd=new FileReader();
@@ -1437,6 +1504,8 @@ window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize
 
 /* ====================== INIT ====================== */
 loadDB(); loadSyncCfg(); refreshYearSel(); buildFakFilter();
+MOD_PAPAR=!!PAPAR_TERBINA;
+if(MOD_PAPAR){ document.body.classList.add('papar'); const bdg=document.getElementById('paparBadge'); if(bdg) bdg.style.display='inline-flex'; }
 document.getElementById('fakFilter').addEventListener('change',e=>{UI.fak=e.target.value;render();if(UI.fak!=='semua'){document.getElementById('fakInfoSec').scrollIntoView({behavior:'smooth',block:'start'});}});
 render();
 setSyncStatus(SYNC.url?'ok':'off');
