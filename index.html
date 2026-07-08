@@ -1262,18 +1262,25 @@ function lapKemasSasaran(){
     const senarai=fakAda.length?fakAda:FAK_ORDER;
     sel.innerHTML=senarai.map(f=>`<option value="${f}">${f} - ${esc(FAK_NAMA[f])}</option>`).join('');
   } else {
-    lbl.textContent='Pilih program / kursus';
-    const kursusAda=[...new Set(DB.rekod.filter(r=>r.tahun===thn).map(r=>r.kursus))].filter(Boolean).sort();
-    sel.innerHTML=kursusAda.length?kursusAda.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join(''):'<option value="">Tiada program bagi tahun ini</option>';
+    lbl.textContent='Pilih kategori program';
+    const katAda=KAT.filter(k=>DB.rekod.some(r=>r.tahun===thn && r.kategori===k));
+    const senarai=katAda.length?katAda:KAT;
+    sel.innerHTML='<option value="semua">Semua kategori</option>'+senarai.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('');
   }
 }
 function janaLaporan(){
   const jenis=document.getElementById('lap_jenis').value;
   const sasaran=document.getElementById('lap_sasaran').value;
   const err=document.getElementById('lap_err');
-  if(!sasaran){ err.textContent='Tiada data untuk dijana bagi pilihan ini.'; err.style.display='block'; return; }
-  if(jenis==='fakulti'){ lapFormat==='pdf'?laporanFakultiPDF(sasaran):laporanFakultiCSV(sasaran); }
-  else { lapFormat==='pdf'?laporanProgramPDF(sasaran):laporanProgramCSV(sasaran); }
+  const thn=DB.tahunSemasa;
+  if(jenis==='fakulti'){
+    if(!sasaran){ err.textContent='Tiada data untuk dijana bagi pilihan ini.'; err.style.display='block'; return; }
+    lapFormat==='pdf'?laporanFakultiPDF(sasaran):laporanFakultiCSV(sasaran);
+  } else {
+    const ada=DB.rekod.some(r=>r.tahun===thn && (sasaran==='semua'||r.kategori===sasaran));
+    if(!ada){ err.textContent='Tiada rekod program bagi pilihan ini pada tahun '+thn+'.'; err.style.display='block'; return; }
+    lapFormat==='pdf'?laporanProgramPDF(sasaran):laporanProgramCSV(sasaran);
+  }
   closeModal();
 }
 function lapHeaderPDF(doc, tajuk, baris3){
@@ -1293,18 +1300,58 @@ function lapKadPDF(doc, cards, y){
     doc.setFontSize(7.3);doc.setTextColor(120);doc.setFont('helvetica','normal');doc.text(String(c[0]).toUpperCase(),x+4,y+6);
     doc.setFontSize(13);doc.setTextColor(19,98,84);doc.setFont('helvetica','bold');doc.text(String(c[1]),x+4,y+13);x+=48; });
 }
-function laporanFakultiPDF(fak){
+function buatCartaImej(config, w, h){
+  return new Promise(resolve=>{
+    if(typeof Chart==='undefined'){ resolve(null); return; }
+    try{
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.style.position='fixed'; cv.style.left='-99999px'; cv.style.top='0';
+      document.body.appendChild(cv);
+      config.plugins=[{id:'bgputih',beforeDraw:(c)=>{const x=c.ctx;x.save();x.globalCompositeOperation='destination-over';x.fillStyle='#ffffff';x.fillRect(0,0,c.width,c.height);x.restore();}}];
+      config.options=Object.assign({responsive:false,animation:false,devicePixelRatio:1.5},config.options||{});
+      const ch=new Chart(cv, config);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        let img=null; try{ img=ch.toBase64Image('image/jpeg',0.92); }catch(e){}
+        try{ ch.destroy(); }catch(e){} cv.remove(); resolve(img);
+      }));
+    }catch(e){ resolve(null); }
+  });
+}
+async function laporanFakultiPDF(fak){
   if(typeof window.jspdf==='undefined'){ toast('Penjana PDF memerlukan sambungan internet.'); return; }
   const {jsPDF}=window.jspdf; const doc=new jsPDF('p','mm','a4'); const thn=DB.tahunSemasa;
   const rows=pensyarahAktif(thn).filter(p=>p.fakulti===fak).map(p=>({p,jam:jamPensyarah(p.id,thn)})).sort((a,b)=>b.jam-a.jam);
   const n=rows.length, capai=rows.filter(r=>r.jam>=DB.sasaran).length;
+  const hampir=rows.filter(r=>tier(r.jam)==='hampir').length, rendah=rows.filter(r=>tier(r.jam)==='rendah').length;
   const kadar=n?Math.round(capai/n*100):0, purata=n?rows.reduce((a,r)=>a+r.jam,0)/n:0;
+  // jam CPD mengikut kategori bagi fakulti ini
+  const pidSet=new Set(rows.map(r=>r.p.id));
+  const recsFak=DB.rekod.filter(r=>r.tahun===thn && pidSet.has(r.pid));
+  const katJam={}; KAT.forEach(k=>katJam[k]=0); recsFak.forEach(r=>{ katJam[r.kategori]=(katJam[r.kategori]||0)+(+r.jam||0); });
+  const katGuna=KAT.filter(k=>katJam[k]>0);
+  // jana graf
+  const imgTier=await buatCartaImej({type:'doughnut',
+    data:{labels:['Tercapai','Hampir','Rendah'],datasets:[{data:[capai,hampir,rendah],backgroundColor:['#136254','#C77A12','#B23D26'],borderColor:'#fff',borderWidth:2}]},
+    options:{cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:16},boxWidth:14,padding:12}}}}}, 460, 340);
+  const imgKat=await buatCartaImej({type:'bar',
+    data:{labels:katGuna.map(k=>k.replace('Pembangunan ','')),datasets:[{data:katGuna.map(k=>katJam[k]),backgroundColor:['#136254','#A9821B','#C77A12','#6A776E'].slice(0,katGuna.length),borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:13}}},y:{beginAtZero:true,ticks:{font:{size:13}}}}}}, 560, 340);
+
   lapHeaderPDF(doc,'Laporan CPD Mengikut Fakulti',(FAK_NAMA[fak]||fak)+' · Tahun '+thn+' · Sasaran '+DB.sasaran+' jam');
   lapKadPDF(doc,[['Pensyarah',n],['Capai Sasaran',capai+' ('+kadar+'%)'],['Belum Capai',n-capai],['Purata Jam',Math.round(purata*10)/10]],36);
+  let mulaJadual=58;
+  if(imgTier || imgKat){
+    doc.setFontSize(9.5);doc.setTextColor(19,98,84);doc.setFont('helvetica','bold');doc.text('Analisis Grafik',14,60);
+    if(imgTier) doc.addImage(imgTier,'JPEG',14,64,68,50);
+    if(imgKat) doc.addImage(imgKat,'JPEG',94,64,102,50);
+    doc.setFontSize(7);doc.setTextColor(120);doc.setFont('helvetica','normal');
+    doc.text('Taburan pencapaian',14,117); doc.text('Jam CPD mengikut kategori program',94,117);
+    mulaJadual=124;
+  }
   const body=rows.map((r,i)=>[i+1,r.p.nama,r.p.jawatan||'',fmt(r.jam),fmt(Math.max(0,DB.sasaran-r.jam))||'-',TIER_LBL[tier(r.jam)]]);
-  doc.autoTable({ startY:58, head:[['Bil','Nama','Jawatan','Jam','Jurang','Status']], body,
+  doc.autoTable({ startY:mulaJadual, head:[['Bil','Nama','Jawatan','Jam CPD','Jurang','Status']], body,
     styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:40}, headStyles:{fillColor:[12,69,58],textColor:255,fontSize:8.2},
-    alternateRowStyles:{fillColor:[250,249,243]}, columnStyles:{0:{cellWidth:11,halign:'center'},3:{halign:'right',cellWidth:15},4:{halign:'right',cellWidth:16},5:{cellWidth:22}},
+    alternateRowStyles:{fillColor:[250,249,243]}, columnStyles:{0:{cellWidth:11,halign:'center'},3:{halign:'right',cellWidth:17},4:{halign:'right',cellWidth:16},5:{cellWidth:22}},
     didParseCell:d=>{ if(d.section==='body'&&d.column.index===5){ const s=d.cell.raw; d.cell.styles.textColor=s==='Tercapai'?[19,98,84]:s==='Hampir'?[140,84,16]:[178,61,38]; d.cell.styles.fontStyle='bold'; } },
     didDrawPage:lapFooterPDF(doc) });
   doc.save('Laporan_CPD_'+fak+'_'+thn+'.pdf'); toast('Laporan fakulti (PDF) dijana.');
@@ -1317,35 +1364,54 @@ function laporanFakultiCSV(fak){
   downloadFile('Laporan_CPD_'+fak+'_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
   toast('Laporan fakulti (CSV) dimuat turun.');
 }
-function laporanProgramPDF(kursus){
+function laporanProgramPDF(kategoriPilih){
   if(typeof window.jspdf==='undefined'){ toast('Penjana PDF memerlukan sambungan internet.'); return; }
   const {jsPDF}=window.jspdf; const doc=new jsPDF('p','mm','a4'); const thn=DB.tahunSemasa;
-  const recs=DB.rekod.filter(r=>r.tahun===thn && r.kursus===kursus)
-    .map(r=>({r,p:DB.pensyarah.find(x=>x.id===r.pid)||{nama:'-',fakulti:'-',jawatan:''}}))
-    .sort((a,b)=>FAK_ORDER.indexOf(a.p.fakulti)-FAK_ORDER.indexOf(b.p.fakulti)||a.p.nama.localeCompare(b.p.nama));
-  const peserta=new Set(recs.map(x=>x.r.pid)).size;
-  const jumJam=recs.reduce((a,x)=>a+(+x.r.jam||0),0);
-  const fakSet=new Set(recs.map(x=>x.p.fakulti));
-  lapHeaderPDF(doc,'Laporan Penyertaan Program','Tahun '+thn+' · '+peserta+' peserta');
-  doc.setFontSize(7.5);doc.setTextColor(120);doc.setFont('helvetica','normal');doc.text('PROGRAM / KURSUS',14,38);
-  doc.setFontSize(11);doc.setTextColor(19,98,84);doc.setFont('helvetica','bold');
-  const namaLines=doc.splitTextToSize(kursus,180); doc.text(namaLines,14,44);
-  const yCards=44+namaLines.length*5+3;
-  lapKadPDF(doc,[['Peserta',peserta],['Jumlah Jam',fmt(jumJam)],['Purata/Peserta',peserta?Math.round(jumJam/peserta*10)/10:0],['Fakulti',fakSet.size]],yCards);
-  const body=recs.map((x,i)=>[i+1,x.p.nama,x.p.fakulti,x.p.jawatan||'',fmtJulatTarikh(x.r.tarikh,x.r.tarikhTamat)||'-',fmt(x.r.jam)]);
-  doc.autoTable({ startY:yCards+22, head:[['Bil','Nama','Fakulti','Jawatan','Tarikh','Jam']], body,
-    styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:40}, headStyles:{fillColor:[12,69,58],textColor:255,fontSize:8.2},
-    alternateRowStyles:{fillColor:[250,249,243]}, columnStyles:{0:{cellWidth:11,halign:'center'},2:{cellWidth:18},4:{cellWidth:38},5:{halign:'right',cellWidth:14}},
+  const semua=kategoriPilih==='semua';
+  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih))
+    .map(r=>({r,p:DB.pensyarah.find(x=>x.id===r.pid)||{nama:'-',fakulti:'-',jawatan:''}}));
+  const katSenarai=KAT.filter(k=>recs.some(x=>x.r.kategori===k));
+  const kursusSenarai=[...new Set(recs.map(x=>x.r.kursus))];
+  // Jam CPD bagi setiap program (nilai wakil = jam tertinggi antara peserta, iaitu nilai penuh program)
+  const jamKursus={}; kursusSenarai.forEach(k=>{ jamKursus[k]=Math.max(0,...recs.filter(x=>x.r.kursus===k).map(x=>+x.r.jam||0)); });
+  const pesertaUnik=new Set(recs.map(x=>x.r.pid)).size;
+  const penyertaan=recs.length;
+  const jumlahJamCPD=kursusSenarai.reduce((a,k)=>a+(jamKursus[k]||0),0);
+
+  lapHeaderPDF(doc,'Laporan Program Latihan CPD', 'Tahun '+thn+' · '+(semua?'Semua kategori':kategoriPilih));
+  lapKadPDF(doc,[['Jumlah Program',kursusSenarai.length],['Penyertaan',penyertaan],['Peserta Unik',pesertaUnik],['Jumlah Jam CPD',fmt(jumlahJamCPD)]],36);
+  doc.setFontSize(7);doc.setTextColor(120);doc.setFont('helvetica','normal');
+  doc.text('Jam CPD program ialah nilai jam bagi program tersebut. Lajur Jam CPD peserta menunjukkan jam yang diperoleh setiap peserta.',14,58);
+
+  const body=[];
+  katSenarai.forEach(kat=>{
+    const recsKat=recs.filter(x=>x.r.kategori===kat);
+    body.push([{content:kat.toUpperCase(),colSpan:5,styles:{fillColor:[19,98,84],textColor:255,fontStyle:'bold',halign:'left',fontSize:8.5}}]);
+    const kursusList=[...new Set(recsKat.map(x=>x.r.kursus))].sort((a,b)=>a.localeCompare(b));
+    kursusList.forEach(kursus=>{
+      const parts=recsKat.filter(x=>x.r.kursus===kursus)
+        .sort((a,b)=>FAK_ORDER.indexOf(a.p.fakulti)-FAK_ORDER.indexOf(b.p.fakulti)||(a.p.nama||'').localeCompare(b.p.nama||''));
+      body.push([{content:kursus+'   (Jam CPD: '+fmt(jamKursus[kursus])+' jam · '+parts.length+' peserta)',colSpan:5,styles:{fillColor:[240,238,228],textColor:[70,55,20],fontStyle:'bold',fontSize:8}}]);
+      parts.forEach((x,i)=>body.push([i+1,x.p.nama,x.p.fakulti,fmtJulatTarikh(x.r.tarikh,x.r.tarikhTamat)||'-',fmt(x.r.jam)]));
+    });
+  });
+  doc.autoTable({ startY:62, head:[['Bil','Nama Peserta','Fakulti','Tarikh','Jam CPD']], body,
+    styles:{font:'helvetica',fontSize:8,cellPadding:2,textColor:40}, headStyles:{fillColor:[12,69,58],textColor:255,fontSize:8.2},
+    columnStyles:{0:{cellWidth:11,halign:'center'},2:{cellWidth:20},3:{cellWidth:42},4:{halign:'right',cellWidth:18}},
     didDrawPage:lapFooterPDF(doc) });
   doc.save('Laporan_Program_'+thn+'.pdf'); toast('Laporan program (PDF) dijana.');
 }
-function laporanProgramCSV(kursus){
-  const thn=DB.tahunSemasa;
-  const rows=[['Bil','Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh Mula','Tarikh Tamat','Kategori','Kursus','Jam']];
-  DB.rekod.filter(r=>r.tahun===thn && r.kursus===kursus)
-    .map(r=>({r,p:DB.pensyarah.find(x=>x.id===r.pid)||{}}))
-    .sort((a,b)=>FAK_ORDER.indexOf(a.p.fakulti)-FAK_ORDER.indexOf(b.p.fakulti)||(a.p.nama||'').localeCompare(b.p.nama||''))
-    .forEach((x,i)=>rows.push([i+1,x.p.nama||'-',x.p.fakulti||'-',x.p.jawatan||'',x.p.status||'',thn,x.r.tarikh||'',x.r.tarikhTamat||'',x.r.kategori||'',x.r.kursus,fmt(x.r.jam)]));
+function laporanProgramCSV(kategoriPilih){
+  const thn=DB.tahunSemasa; const semua=kategoriPilih==='semua';
+  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih))
+    .map(r=>({r,p:DB.pensyarah.find(x=>x.id===r.pid)||{}}));
+  const jamKursus={}; [...new Set(recs.map(x=>x.r.kursus))].forEach(k=>{ jamKursus[k]=Math.max(0,...recs.filter(x=>x.r.kursus===k).map(x=>+x.r.jam||0)); });
+  recs.sort((a,b)=>KAT.indexOf(a.r.kategori)-KAT.indexOf(b.r.kategori)
+    ||(a.r.kursus||'').localeCompare(b.r.kursus||'')
+    ||FAK_ORDER.indexOf(a.p.fakulti)-FAK_ORDER.indexOf(b.p.fakulti)
+    ||(a.p.nama||'').localeCompare(b.p.nama||''));
+  const rows=[['Kategori','Kursus / Bengkel','Jam CPD Program','Nama Peserta','Fakulti','Jawatan','Status Jawatan','Tarikh Mula','Tarikh Tamat','Jam CPD Peserta']];
+  recs.forEach(x=>rows.push([x.r.kategori||'',x.r.kursus||'',fmt(jamKursus[x.r.kursus]||0),x.p.nama||'-',x.p.fakulti||'-',x.p.jawatan||'',x.p.status||'',x.r.tarikh||'',x.r.tarikhTamat||'',fmt(x.r.jam)]));
   downloadFile('Laporan_Program_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
   toast('Laporan program (CSV) dimuat turun.');
 }
