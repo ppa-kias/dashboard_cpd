@@ -176,7 +176,7 @@
           <button onclick="exportCSV('ringkas');closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 3v18"/></svg>CSV Ringkasan</button>
           <button onclick="exportCSV('terperinci');closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>CSV Terperinci</button>
           <div class="dd-sep"></div>
-          <button onclick="openLaporan();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="9"/><rect x="12" y="5" width="3" height="13"/><rect x="17" y="12" width="3" height="6"/></svg>Laporan Fakulti / Program</button>
+          <button onclick="openLaporan();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="9"/><rect x="12" y="5" width="3" height="13"/><rect x="17" y="12" width="3" height="6"/></svg>Laporan Fakulti / Individu / Program</button>
           <div class="dd-sep"></div>
           <button class="aksi-sunting" onclick="openImport();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0-12l4 4m-4-4l-4 4M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3"/></svg>Import Data Penyertaan (CSV)</button>
           <button class="aksi-sunting" onclick="openPensyarah();closeDD()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/></svg>Tambah Pensyarah</button>
@@ -1293,16 +1293,20 @@ let lapFormat='pdf';
 function openLaporan(){
   const thn=DB.tahunSemasa;
   lapFormat='pdf';
-  openModal('Laporan Fakulti / Program','Muat turun laporan CPD mengikut fakulti atau program bagi tahun '+thn+'.',`
+  openModal('Laporan Fakulti / Individu / Program','Muat turun laporan CPD mengikut fakulti, individu, atau program bagi tahun '+thn+'.',`
     <div style="display:grid;gap:14px;">
       <div><label class="fld">Jenis laporan</label>
         <select id="lap_jenis" onchange="lapKemasSasaran()">
           <option value="fakulti">Mengikut Fakulti</option>
+          <option value="individu">Mengikut Individu</option>
           <option value="program">Mengikut Program / Kursus</option>
         </select>
       </div>
       <div><label class="fld" id="lap_sasaran_lbl">Pilih fakulti</label>
-        <select id="lap_sasaran"></select>
+        <select id="lap_sasaran" onchange="lapSasaranTukar()"></select>
+      </div>
+      <div id="lap_program_wrap" style="display:none;"><label class="fld">Program / kursus</label>
+        <select id="lap_sasaran2"></select>
       </div>
       <div><label class="fld">Format fail</label>
         <div class="seg" id="lap_format">
@@ -1321,6 +1325,7 @@ function lapKemasSasaran(){
   const jenis=document.getElementById('lap_jenis').value;
   const lbl=document.getElementById('lap_sasaran_lbl');
   const sel=document.getElementById('lap_sasaran');
+  const wrap=document.getElementById('lap_program_wrap');
   const thn=DB.tahunSemasa;
   if(jenis==='fakulti'){
     lbl.textContent='Pilih fakulti';
@@ -1328,25 +1333,51 @@ function lapKemasSasaran(){
     const fakAda=FAK_ORDER.filter(f=>aktif.some(p=>p.fakulti===f));
     const senarai=fakAda.length?fakAda:FAK_ORDER;
     sel.innerHTML=senarai.map(f=>`<option value="${f}">${f} - ${esc(FAK_NAMA[f])}</option>`).join('');
+    wrap.style.display='none';
+  } else if(jenis==='individu'){
+    lbl.textContent='Pilih pensyarah';
+    const aktif=pensyarahAktif(thn).slice().sort((a,b)=>FAK_ORDER.indexOf(a.fakulti)-FAK_ORDER.indexOf(b.fakulti)||a.nama.localeCompare(b.nama));
+    sel.innerHTML=aktif.length?aktif.map(p=>`<option value="${p.id}">${esc(p.nama)} (${p.fakulti})</option>`).join(''):'<option value="">Tiada pensyarah aktif</option>';
+    wrap.style.display='none';
   } else {
     lbl.textContent='Pilih kategori program';
     const katAda=KAT.filter(k=>DB.rekod.some(r=>r.tahun===thn && r.kategori===k));
     const senarai=katAda.length?katAda:KAT;
     sel.innerHTML='<option value="semua">Semua kategori</option>'+senarai.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('');
+    wrap.style.display='';
+    lapKemasProgram();
   }
+}
+function lapSasaranTukar(){
+  if(document.getElementById('lap_jenis').value==='program') lapKemasProgram();
+}
+function lapKemasProgram(){
+  const thn=DB.tahunSemasa;
+  const kat=document.getElementById('lap_sasaran').value;
+  const sel2=document.getElementById('lap_sasaran2');
+  if(!sel2) return;
+  const semua=kat==='semua';
+  const kursusAda=[...new Set(DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kat)).map(r=>r.kursus))].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  sel2.innerHTML='<option value="semua">Semua program dalam kategori ini</option>'+kursusAda.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('');
 }
 function janaLaporan(){
   const jenis=document.getElementById('lap_jenis').value;
   const sasaran=document.getElementById('lap_sasaran').value;
   const err=document.getElementById('lap_err');
   const thn=DB.tahunSemasa;
+  const ralat=(m)=>{ err.textContent=m; err.style.display='block'; };
   if(jenis==='fakulti'){
-    if(!sasaran){ err.textContent='Tiada data untuk dijana bagi pilihan ini.'; err.style.display='block'; return; }
+    if(!sasaran){ ralat('Tiada data untuk dijana bagi pilihan ini.'); return; }
     lapFormat==='pdf'?laporanFakultiPDF(sasaran):laporanFakultiCSV(sasaran);
+  } else if(jenis==='individu'){
+    const pid=+sasaran;
+    if(!pid){ ralat('Sila pilih pensyarah.'); return; }
+    lapFormat==='pdf'?laporanIndividuPDF(pid):laporanIndividuCSV(pid);
   } else {
-    const ada=DB.rekod.some(r=>r.tahun===thn && (sasaran==='semua'||r.kategori===sasaran));
-    if(!ada){ err.textContent='Tiada rekod program bagi pilihan ini pada tahun '+thn+'.'; err.style.display='block'; return; }
-    lapFormat==='pdf'?laporanProgramPDF(sasaran):laporanProgramCSV(sasaran);
+    const kursus=(document.getElementById('lap_sasaran2')||{}).value||'semua';
+    const ada=DB.rekod.some(r=>r.tahun===thn && (sasaran==='semua'||r.kategori===sasaran) && (kursus==='semua'||r.kursus===kursus));
+    if(!ada){ ralat('Tiada rekod program bagi pilihan ini pada tahun '+thn+'.'); return; }
+    lapFormat==='pdf'?laporanProgramPDF(sasaran,kursus):laporanProgramCSV(sasaran,kursus);
   }
   closeModal();
 }
@@ -1431,11 +1462,11 @@ function laporanFakultiCSV(fak){
   downloadFile('Laporan_CPD_'+fak+'_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
   toast('Laporan fakulti (CSV) dimuat turun.');
 }
-function laporanProgramPDF(kategoriPilih){
+function laporanProgramPDF(kategoriPilih, kursusPilih){
   if(typeof window.jspdf==='undefined'){ toast('Penjana PDF memerlukan sambungan internet.'); return; }
   const {jsPDF}=window.jspdf; const doc=new jsPDF('p','mm','a4'); const thn=DB.tahunSemasa;
-  const semua=kategoriPilih==='semua';
-  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih))
+  const semua=kategoriPilih==='semua'; kursusPilih=kursusPilih||'semua'; const satuKursus=kursusPilih!=='semua';
+  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih) && (!satuKursus||r.kursus===kursusPilih))
     .map(r=>({r,p:DB.pensyarah.find(x=>x.id===r.pid)||{nama:'-',fakulti:'-',jawatan:''}}));
   const katSenarai=KAT.filter(k=>recs.some(x=>x.r.kategori===k));
   const kursusSenarai=[...new Set(recs.map(x=>x.r.kursus))];
@@ -1445,7 +1476,8 @@ function laporanProgramPDF(kategoriPilih){
   const penyertaan=recs.length;
   const jumlahJamCPD=kursusSenarai.reduce((a,k)=>a+(jamKursus[k]||0),0);
 
-  lapHeaderPDF(doc,'Laporan Program Latihan CPD', 'Tahun '+thn+' · '+(semua?'Semua kategori':kategoriPilih));
+  const subtajuk='Tahun '+thn+' · '+(semua?'Semua kategori':kategoriPilih)+(satuKursus?' · 1 program dipilih':'');
+  lapHeaderPDF(doc,'Laporan Program Latihan CPD', subtajuk);
   lapKadPDF(doc,[['Jumlah Program',kursusSenarai.length],['Penyertaan',penyertaan],['Peserta Unik',pesertaUnik],['Jumlah Jam CPD',fmt(jumlahJamCPD)]],36);
   doc.setFontSize(7);doc.setTextColor(120);doc.setFont('helvetica','normal');
   doc.text('Jam CPD program ialah nilai jam bagi program tersebut. Lajur Jam CPD peserta menunjukkan jam yang diperoleh setiap peserta.',14,58);
@@ -1468,9 +1500,9 @@ function laporanProgramPDF(kategoriPilih){
     didDrawPage:lapFooterPDF(doc) });
   doc.save('Laporan_Program_'+thn+'.pdf'); toast('Laporan program (PDF) dijana.');
 }
-function laporanProgramCSV(kategoriPilih){
-  const thn=DB.tahunSemasa; const semua=kategoriPilih==='semua';
-  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih))
+function laporanProgramCSV(kategoriPilih, kursusPilih){
+  const thn=DB.tahunSemasa; const semua=kategoriPilih==='semua'; kursusPilih=kursusPilih||'semua'; const satuKursus=kursusPilih!=='semua';
+  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih) && (!satuKursus||r.kursus===kursusPilih))
     .map(r=>({r,p:DB.pensyarah.find(x=>x.id===r.pid)||{}}));
   const jamKursus={}; [...new Set(recs.map(x=>x.r.kursus))].forEach(k=>{ jamKursus[k]=Math.max(0,...recs.filter(x=>x.r.kursus===k).map(x=>+x.r.jam||0)); });
   recs.sort((a,b)=>KAT.indexOf(a.r.kategori)-KAT.indexOf(b.r.kategori)
@@ -1481,6 +1513,49 @@ function laporanProgramCSV(kategoriPilih){
   recs.forEach(x=>rows.push([x.r.kategori||'',x.r.kursus||'',fmt(jamKursus[x.r.kursus]||0),x.p.nama||'-',x.p.fakulti||'-',x.p.jawatan||'',x.p.status||'',x.r.tarikh||'',x.r.tarikhTamat||'',fmt(x.r.jam)]));
   downloadFile('Laporan_Program_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
   toast('Laporan program (CSV) dimuat turun.');
+}
+function laporanIndividuPDF(pid){
+  if(typeof window.jspdf==='undefined'){ toast('Penjana PDF memerlukan sambungan internet.'); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF('p','mm','a4'); const thn=DB.tahunSemasa;
+  const p=DB.pensyarah.find(x=>x.id===pid)||{nama:'-',fakulti:'-',jawatan:''};
+  const recs=DB.rekod.filter(r=>r.pid===pid && r.tahun===thn)
+    .slice().sort((a,b)=>(a.tarikh||'').localeCompare(b.tarikh||'')||KAT.indexOf(a.kategori)-KAT.indexOf(b.kategori));
+  const jam=recs.reduce((a,r)=>a+(+r.jam||0),0);
+  const jurang=Math.max(0,DB.sasaran-jam);
+  const status=TIER_LBL[tier(jam)];
+  lapHeaderPDF(doc,'Laporan CPD Individu','Tahun '+thn+' · Sasaran '+DB.sasaran+' jam');
+  doc.setFontSize(7.5);doc.setTextColor(120);doc.setFont('helvetica','normal');doc.text('PENSYARAH',14,38);
+  doc.setFontSize(12);doc.setTextColor(19,98,84);doc.setFont('helvetica','bold');
+  const namaLines=doc.splitTextToSize(p.nama+(p.jawatan?('  ('+p.jawatan+')'):''),182);
+  doc.text(namaLines,14,44);
+  const yFak=44+namaLines.length*5+1;
+  doc.setFontSize(8.5);doc.setTextColor(90);doc.setFont('helvetica','normal');
+  doc.text((FAK_NAMA[p.fakulti]||p.fakulti),14,yFak);
+  const yCards=yFak+5;
+  lapKadPDF(doc,[['Jumlah Jam CPD',fmt(jam)],['Sasaran',fmt(DB.sasaran)],['Jurang',fmt(jurang)],['Status',status]],yCards);
+  if(recs.length){
+    const body=recs.map((r,i)=>[i+1,r.kategori,r.kursus,fmtJulatTarikh(r.tarikh,r.tarikhTamat)||'-',fmt(r.jam)]);
+    doc.autoTable({ startY:yCards+22, head:[['Bil','Kategori','Kursus / Bengkel','Tarikh','Jam CPD']], body,
+      styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:40}, headStyles:{fillColor:[12,69,58],textColor:255,fontSize:8.2},
+      alternateRowStyles:{fillColor:[250,249,243]}, columnStyles:{0:{cellWidth:11,halign:'center'},1:{cellWidth:40},3:{cellWidth:34},4:{halign:'right',cellWidth:16}},
+      didDrawPage:lapFooterPDF(doc) });
+  } else {
+    doc.setFontSize(9.5);doc.setTextColor(150);doc.setFont('helvetica','normal');
+    doc.text('Tiada rekod latihan bagi pensyarah ini pada tahun '+thn+'.',14,yCards+28);
+    lapFooterPDF(doc)();
+  }
+  doc.save('Laporan_Individu_'+thn+'.pdf'); toast('Laporan individu (PDF) dijana.');
+}
+function laporanIndividuCSV(pid){
+  const thn=DB.tahunSemasa;
+  const p=DB.pensyarah.find(x=>x.id===pid)||{};
+  const recs=DB.rekod.filter(r=>r.pid===pid && r.tahun===thn)
+    .slice().sort((a,b)=>(a.tarikh||'').localeCompare(b.tarikh||'')||KAT.indexOf(a.kategori)-KAT.indexOf(b.kategori));
+  const rows=[['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Bil','Kategori','Kursus / Bengkel','Tarikh Mula','Tarikh Tamat','Jam CPD']];
+  if(!recs.length){ rows.push([p.nama||'-',p.fakulti||'-',p.jawatan||'',p.status||'',thn,'','(Tiada rekod)','','','','']); }
+  recs.forEach((r,i)=>rows.push([p.nama||'-',p.fakulti||'-',p.jawatan||'',p.status||'',thn,i+1,r.kategori||'',r.kursus||'',r.tarikh||'',r.tarikhTamat||'',fmt(r.jam)]));
+  downloadFile('Laporan_Individu_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
+  toast('Laporan individu (CSV) dimuat turun.');
 }
 
 /* ====================== MISC ====================== */
