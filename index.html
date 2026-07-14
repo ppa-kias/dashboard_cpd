@@ -443,7 +443,7 @@ function saveDB(){ storage.set(STORE_KEY, JSON.stringify(DB)); drivePushDebounce
    tetingkap Sediakan Google Drive. */
 const SYNC_TERBINA = {
   url: 'https://script.google.com/macros/s/AKfycbz_tbrv_2TFLKJbe2xWNFIPbKF6IsmtMheQapIFepdir63UKqSS8SkoEcm02Rh1WKtR_A/exec' /*URL_TERBINA*/,
-  token: 'ppa-kias-2026' /*TOKEN_TERBINA*/
+  token: 'ppa-kias-2023' /*TOKEN_TERBINA*/
 };
 const PAPAR_TERBINA = false /*PAPAR_TERBINA*/;
 let MOD_PAPAR = false;
@@ -576,7 +576,7 @@ function openDriveSetup(){
       </div>
       <div>
         <label class="fld">Token rahsia (mesti sama dengan kod Apps Script)</label>
-        <input type="text" id="sy_token" value="${esc(SYNC.token)}" placeholder="cth. ppa-kias-2026" autocomplete="off">
+        <input type="text" id="sy_token" value="${esc(SYNC.token)}" placeholder="cth. ppa-kias-2023" autocomplete="off">
       </div>
       <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink-2);cursor:pointer;">
         <input type="checkbox" id="sy_auto" ${SYNC.auto?'checked':''} style="width:auto;"> Segerak secara automatik setiap kali data berubah
