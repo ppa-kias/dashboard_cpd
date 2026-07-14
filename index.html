@@ -167,6 +167,8 @@
         <span class="sync-dot"></span><span id="syncTxt" class="hide-sm">Drive</span>
       </button>
       <span id="paparBadge" style="display:none;align-items:center;gap:6px;background:var(--gold-soft,#F3ECD9);color:var(--gold,#A9821B);border:1px solid #E4D5A8;border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Paparan sahaja</span>
+      <button id="btnLogin" class="btn btn-ghost" style="display:none;" onclick="openLogin()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg><span class="hide-sm">Log Masuk</span></button>
+      <button id="btnLogout" class="btn btn-ghost" style="display:none;" onclick="logKeluar()" title="Log keluar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span class="hide-sm">Log Keluar</span></button>
       <select id="yearSel" style="width:auto;font-weight:700;padding-right:30px;" aria-label="Pilih tahun"></select>
       <button class="btn btn-primary aksi-sunting" onclick="openRekod()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="hide-sm">Rekod Latihan</span></button>
       <div class="dd">
@@ -377,6 +379,50 @@ const SYNC_TERBINA = {
 };
 const PAPAR_TERBINA = false /*PAPAR_TERBINA*/;
 let MOD_PAPAR = false;
+/* LOG MASUK: kelayakan lalai. Log masuk diperlukan untuk menambah atau menyunting data.
+   Pengguna yang tidak log masuk hanya boleh melihat data sahaja. */
+const AUTH_USER = 'ppa@kias';
+const AUTH_PASS = 'ppakias@2023';
+const LOGIN_KEY = 'ppa_cpd_login_v1';
+let PAPAR_KETAT = false;   // fail paparan sahaja yang ketat (log masuk tidak boleh membukanya)
+let LOGIN_MASUK = false;   // keadaan log masuk semasa
+function bacaLogin(){ try{ return sessionStorage.getItem(LOGIN_KEY)==='1'; }catch(e){ return false; } }
+function simpanLogin(v){ try{ if(v) sessionStorage.setItem(LOGIN_KEY,'1'); else sessionStorage.removeItem(LOGIN_KEY); }catch(e){} }
+function kemasKunci(){
+  MOD_PAPAR = PAPAR_KETAT || !LOGIN_MASUK;
+  document.body.classList.toggle('papar', MOD_PAPAR);
+  const bBadge=document.getElementById('paparBadge');
+  const bIn=document.getElementById('btnLogin');
+  const bOut=document.getElementById('btnLogout');
+  if(bBadge) bBadge.style.display = MOD_PAPAR ? 'inline-flex' : 'none';
+  if(bIn) bIn.style.display = (!PAPAR_KETAT && !LOGIN_MASUK) ? 'inline-flex' : 'none';
+  if(bOut) bOut.style.display = (!PAPAR_KETAT && LOGIN_MASUK) ? 'inline-flex' : 'none';
+}
+function openLogin(){
+  if(PAPAR_KETAT) return;
+  openModal('Log Masuk','Sila log masuk untuk menambah atau menyunting data. Tanpa log masuk, anda hanya boleh melihat data.',`
+    <div style="display:grid;gap:14px;">
+      <div><label class="fld">Nama pengguna</label><input type="text" id="lg_user" autocomplete="username" placeholder="ppa@kias"></div>
+      <div><label class="fld">Kata laluan</label><input type="password" id="lg_pass" autocomplete="current-password" placeholder="Kata laluan"></div>
+      <p class="mini" id="lg_err" style="color:var(--clay);display:none;"></p>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-primary" onclick="lakukanLogin()">Log Masuk</button>`);
+  setTimeout(()=>{ const u=document.getElementById('lg_user'); if(u) u.focus(); const pw=document.getElementById('lg_pass'); if(pw) pw.addEventListener('keydown',e=>{ if(e.key==='Enter') lakukanLogin(); }); },60);
+}
+function lakukanLogin(){
+  const u=(document.getElementById('lg_user').value||'').trim();
+  const p=document.getElementById('lg_pass').value||'';
+  const err=document.getElementById('lg_err');
+  if(u===AUTH_USER && p===AUTH_PASS){
+    LOGIN_MASUK=true; simpanLogin(true); kemasKunci(); closeModal(); render(); toast('Log masuk berjaya. Anda kini boleh menyunting data.');
+  } else {
+    err.textContent='Nama pengguna atau kata laluan tidak betul.'; err.style.display='block';
+  }
+}
+function logKeluar(){
+  LOGIN_MASUK=false; simpanLogin(false); kemasKunci(); render(); toast('Anda telah log keluar. Mod paparan sahaja.');
+}
 const SYNC_KEY='ppa_cpd_sync_v1';
 let SYNC={url:'',token:'',auto:true};
 let syncTimer=null;
@@ -1579,8 +1625,9 @@ window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize
 
 /* ====================== INIT ====================== */
 loadDB(); loadSyncCfg(); refreshYearSel(); buildFakFilter();
-MOD_PAPAR=!!PAPAR_TERBINA;
-if(MOD_PAPAR){ document.body.classList.add('papar'); const bdg=document.getElementById('paparBadge'); if(bdg) bdg.style.display='inline-flex'; }
+PAPAR_KETAT=!!PAPAR_TERBINA;
+LOGIN_MASUK=PAPAR_KETAT?false:bacaLogin();
+kemasKunci();
 document.getElementById('fakFilter').addEventListener('change',e=>{UI.fak=e.target.value;render();if(UI.fak!=='semua'){document.getElementById('fakInfoSec').scrollIntoView({behavior:'smooth',block:'start'});}});
 render();
 setSyncStatus(SYNC.url?'ok':'off');
