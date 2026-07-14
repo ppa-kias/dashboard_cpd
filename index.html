@@ -360,7 +360,7 @@ function seedToDB(seed){
 }
 function loadDB(){
   const raw=storage.get(STORE_KEY);
-  if(raw){ try{ DB=JSON.parse(raw); if(!DB.pensyarah) throw 0; migrasiFakulti(); pastikanRosterWujud(); return; }catch(e){} }
+  if(raw){ try{ DB=JSON.parse(raw); if(!DB.pensyarah) throw 0; migrasiFakulti(); pastikanRosterWujud(); if(bersihkanYatim()) saveDB(); return; }catch(e){} }
   DB=seedToDB(SEED); saveDB();
 }
 function migrasiFakulti(){
@@ -386,6 +386,23 @@ function pastikanRosterWujud(){
       .map(p=>({pid:p.id, fakulti:p.fakulti, jawatan:p.jawatan, status:p.status}));
   });
   saveDB();
+}
+// Buang rujukan yatim: rekod dan ahli roster yang pid-nya tiada dalam senarai induk pensyarah.
+// Ini memastikan pensyarah yang telah dibuang tidak muncul semula pada mana-mana paparan.
+function bersihkanYatim(){
+  const sah=new Set((DB.pensyarah||[]).map(p=>p.id));
+  let ubah=false;
+  const rekodAsal=(DB.rekod||[]).length;
+  DB.rekod=(DB.rekod||[]).filter(r=>sah.has(r.pid));
+  if(DB.rekod.length!==rekodAsal) ubah=true;
+  if(DB.roster){
+    Object.keys(DB.roster).forEach(thn=>{
+      const asal=DB.roster[thn].length;
+      DB.roster[thn]=DB.roster[thn].filter(e=>sah.has(e.pid));
+      if(DB.roster[thn].length!==asal) ubah=true;
+    });
+  }
+  return ubah;
 }
 function rosterThn(thn){
   const R=DB.roster||{};
@@ -515,11 +532,13 @@ async function driveLoad(senyap){
     DB._rid=Math.max(0,...DB.rekod.map(r=>+r.id||0))+1;
     migrasiFakulti();
     if(!DB.roster || !Object.keys(DB.roster).length){ DB.roster=null; pastikanRosterWujud(); }
+    const adaYatim=bersihkanYatim();
     storage.set(STORE_KEY, JSON.stringify(DB));
     if(senyap){ DB.tahunSemasa=tahunTerkini(); }
     refreshYearSel();
     setSyncStatus('ok','Data dimuat dari Google Drive');
     render();
+    if(adaYatim) drivePushDebounced();
     if(!senyap) toast('Data berjaya dimuat dari Google Drive ('+DB.pensyarah.length+' pensyarah).');
     return true;
   }catch(err){ setSyncStatus('error',err.message); if(!senyap) toast('Gagal memuat dari Google Drive: '+err.message); return false; }
