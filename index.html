@@ -680,7 +680,7 @@ function render(){
     {l:'Jumlah Pensyarah',v:n,s:'pensyarah tahun '+thn,c:'var(--ink)'},
     {l:'Capai Sasaran',v:capai,s:`≥ ${DB.sasaran} jam CPD`,c:'var(--brand)'},
     {l:'Belum Capai',v:hampir+rendah,s:`${hampir} hampir · ${rendah} rendah`,c:'var(--clay)'},
-    {l:'Belum Ada CPD',v:belum,s:'belum mengikuti latihan',c:'var(--amber)'},
+    {l:'Belum Ada Jam CPD',v:belum,s:'belum mengikuti latihan',c:'var(--amber)'},
   ];
   document.getElementById('statGrid').innerHTML=stats.map(x=>`
     <div class="card" style="padding:18px 18px 16px;">
