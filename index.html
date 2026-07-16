@@ -1740,6 +1740,431 @@ document.getElementById('fakFilter').addEventListener('change',e=>{UI.fak=e.targ
 render();
 setSyncStatus(SYNC.url?'ok':'off');
 if(SYNC.url){ driveLoad(true); }
+/* ================== TAMBAHAN: HASHTAG (#) & CATATAN PROGRAM ================== */
+(function(){
+  const st=document.createElement('style');
+  st.textContent=`
+    textarea{font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;width:100%;resize:vertical;line-height:1.6;}
+    textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);}
+    .tagpill{display:inline-block;background:var(--brand-soft);color:var(--brand-deep);border:1px solid #CFE0DB;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;margin:3px 4px 0 0;cursor:pointer;}
+    .tagpill:hover,.tagpill.on{background:var(--brand);color:#fff;border-color:var(--brand);}`;
+  document.head.appendChild(st);
+  const fak=document.getElementById('fakFilter');
+  if(fak && !document.getElementById('tagFilter')){
+    const s=document.createElement('select');
+    s.id='tagFilter'; s.style.width='auto'; s.style.minWidth='150px';
+    s.addEventListener('change',()=>{ UI.tag=s.value||'semua'; render(); });
+    fak.parentNode.insertBefore(s, fak.nextSibling);
+  }
+  UI.tag='semua';
+})();
+
+function normalTag(s){
+  if(!s) return '';
+  const t=String(s).split(/[\s,;]+/)
+    .map(x=>x.replace(/^#+/,'').replace(/[^0-9A-Za-z\u00C0-\u024F_-]/g,''))
+    .filter(Boolean).map(x=>'#'+x);
+  return [...new Set(t)].join(' ');
+}
+function tagArr(r){ return String((r&&r.tag)||'').split(/\s+/).filter(Boolean); }
+function senaraiTag(thn){
+  const set=new Set();
+  DB.rekod.filter(r=>thn==null||r.tahun===thn).forEach(r=>tagArr(r).forEach(t=>set.add(t)));
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function tagKursus(thn,kursus){
+  const r=DB.rekod.find(x=>x.tahun===thn && x.kursus===kursus && (x.tag||x.catatan));
+  return r?{tag:r.tag||'',catatan:r.catatan||''}:{tag:'',catatan:''};
+}
+function terapkanProgram(thn,kursus,tag,catatan){
+  if(!kursus) return;
+  DB.rekod.forEach(r=>{ if(r.tahun===thn && r.kursus===kursus){ r.tag=tag; r.catatan=catatan; } });
+}
+function tapisTag(t){ UI.tag=t; const s=document.getElementById('tagFilter'); if(s) s.value=t; render(); }
+function buildTagFilter_(thn){
+  const sel=document.getElementById('tagFilter'); if(!sel) return;
+  const tags=senaraiTag(thn);
+  if(UI.tag!=='semua' && !tags.includes(UI.tag)) UI.tag='semua';
+  sel.innerHTML='<option value="semua">Semua hashtag</option>'
+    +tags.map(t=>`<option value="${esc(t)}" ${t===UI.tag?'selected':''}>${esc(t)}</option>`).join('');
+  sel.value=UI.tag; sel.disabled=!tags.length;
+}
+function tapisBarisTag_(){
+  const thn=DB.tahunSemasa;
+  buildTagFilter_(thn);
+  const tb=document.getElementById('tbody'); if(!tb) return;
+  let tampak=0, jum=0;
+  tb.querySelectorAll('tr.rowdetail').forEach(det=>{
+    const pid=+String(det.id).replace('det-','');
+    const main=det.previousElementSibling; if(!main) return;
+    jum++;
+    const ok = UI.tag==='semua' ||
+      DB.rekod.some(x=>x.pid===pid && x.tahun===thn && tagArr(x).includes(UI.tag));
+    main.style.display=ok?'':'none';
+    if(!ok) det.style.display='none';
+    if(ok) tampak++;
+  });
+  if(UI.tag!=='semua'){
+    const c=document.getElementById('tableCount');
+    if(c) c.textContent=tampak+' pensyarah dengan '+UI.tag;
+  }
+}
+const _renderAsal=render;
+render=function(){ _renderAsal(); tapisBarisTag_(); };
+
+/* ---------- Paparan butiran ---------- */
+breakdownHTML=function(recs, pid, thn){
+  if(!recs.length) return `<div class="mini" style="padding:10px 0;">Tiada rekod latihan terperinci.</div>`;
+  let html='';
+  KAT.forEach(k=>{
+    const items=recs.filter(r=>r.kategori===k);
+    if(!items.length) return;
+    html+=`<div class="catlbl">${k}</div><div>`;
+    items.forEach(r=>{
+      const jt=fmtJulatTarikh(r.tarikh,r.tarikhTamat);
+      const td=jt?` · <span style="color:var(--muted);">${jt}</span>`:'';
+      const tp=tagArr(r).map(t=>`<span class="tagpill ${UI.tag===t?'on':''}" onclick="tapisTag('${esc(t)}')" title="Tapis ${esc(t)}">${esc(t)}</span>`).join('');
+      html+=`<div style="margin-bottom:7px;">
+        <span class="chip">${esc(r.kursus)} · <b>${fmt(r.jam)} jam</b>${td} <button class="aksi-sunting" onclick="openEditRekod(${r.id})" title="Sunting rekod" style="border:none;background:none;cursor:pointer;color:var(--brand);padding:0 0 0 4px;line-height:1;font-size:13px;">&#9998;</button><button class="aksi-sunting" onclick="hapusRekod(${r.id})" title="Padam rekod" style="border:none;background:none;cursor:pointer;color:var(--clay);padding:0 0 0 4px;line-height:1;">×</button></span>
+        ${tp?`<span style="margin-left:4px;">${tp}</span>`:''}
+        ${r.catatan?`<div class="mini" style="margin:5px 0 0 2px;line-height:1.55;border-left:2px solid var(--line);padding-left:9px;">${esc(r.catatan)}</div>`:''}
+      </div>`;
+    });
+    html+='</div>';
+  });
+  const tot=recs.reduce((a,r)=>a+r.jam,0);
+  html+=`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:14px;align-items:center;">
+    <span class="mini">Jumlah <b class="serif" style="font-size:15px;color:var(--brand-deep);">${fmt(tot)} jam</b> · ${recs.length} aktiviti</span>
+    <button class="btn btn-ghost aksi-sunting" style="padding:6px 11px;font-size:12.5px;" onclick="openRekod(${pid})">+ Tambah latihan</button>
+  </div>`;
+  return html;
+};
+
+/* ---------- Borang tambah rekod ---------- */
+function isiDaripadaKursus(){
+  const el=document.getElementById('r_kursus'); if(!el) return;
+  const k=el.value.trim(); if(!k) return;
+  const d=tagKursus(+document.getElementById('r_thn').value,k);
+  if(!d.tag && !d.catatan) return;
+  const t=document.getElementById('r_tag'), c=document.getElementById('r_catatan');
+  if(t && !t.value.trim()) t.value=String(d.tag||'').replace(/#/g,'');
+  if(c && !c.value.trim()) c.value=d.catatan||'';
+}
+openRekod=function(pidPra){
+  if(MOD_PAPAR) return;
+  const thn=DB.tahunSemasa;
+  const kursusSedia=[...new Set(DB.rekod.map(r=>r.kursus))].filter(Boolean).sort();
+  const tagSedia=senaraiTag(null).map(t=>t.replace(/^#/,''));
+  rekodPilih=new Set(pidPra?[pidPra]:[]);
+  const prafak=pidPra?(DB.pensyarah.find(p=>p.id===pidPra)||{}).fakulti:'';
+  openModal('Tambah Rekod Latihan','Masukkan butiran satu aktiviti CPD, kemudian pilih seorang atau lebih pensyarah yang terlibat.',`
+    <div style="display:grid;gap:14px;">
+      <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;">
+        <div><label class="fld">Kategori program</label><select id="r_kat">${optionsKat('Pembangunan Staf Akademik')}</select></div>
+        <div><label class="fld">Tahun</label><select id="r_thn">${optionsTahun(thn)}</select></div>
+      </div>
+      <div>
+        <label class="fld">Nama kursus / bengkel</label>
+        <input type="text" id="r_kursus" list="kursusList" placeholder="cth. Bengkel Penyelarasan Rubrik Analitik" autocomplete="off" oninput="isiDaripadaKursus()">
+        <datalist id="kursusList">${kursusSedia.map(k=>`<option value="${esc(k)}">`).join('')}</datalist>
+      </div>
+      <div>
+        <label class="fld">Hashtag fokus / tema</label>
+        <input type="text" id="r_tag" list="tagListSedia" placeholder="cth. OBE, rubrik, pentaksiran" autocomplete="off">
+        <datalist id="tagListSedia">${tagSedia.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+        <div class="mini" style="margin-top:5px;line-height:1.5;">Pisahkan dengan koma atau ruang. Tanda pagar ditambah automatik, contohnya OBE, rubrik menjadi #OBE #rubrik.</div>
+      </div>
+      <div>
+        <label class="fld">Catatan ringkas program</label>
+        <textarea id="r_catatan" rows="2" placeholder="Pengenalan ringkas bengkel atau latihan ini."></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div><label class="fld">Tarikh mula</label><input type="date" id="r_tarikh" onchange="selaraskanTahun()"></div>
+        <div><label class="fld">Tarikh tamat</label><input type="date" id="r_tarikhTamat"></div>
+        <div><label class="fld">Jam CPD</label><input type="number" id="r_jam" min="0" step="0.5" placeholder="cth. 6"></div>
+      </div>
+      <div>
+        <label class="fld">Pensyarah terlibat (pilih seorang atau lebih)</label>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <select id="r_fakfil" style="width:auto;flex:1;min-width:150px;" onchange="renderPilihPensyarah()">
+            <option value="semua">Semua fakulti</option>
+            ${FAK_ORDER.map(f=>`<option value="${f}" ${f===prafak?'selected':''}>${f} - ${FAK_NAMA[f]}</option>`).join('')}
+          </select>
+          <input type="search" id="r_cari" placeholder="Cari nama..." style="flex:1;min-width:130px;" oninput="renderPilihPensyarah()">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px;">
+          <button type="button" class="btn btn-ghost" style="padding:6px 10px;font-size:12.5px;" onclick="pilihSemuaPensyarah()">Pilih / nyahpilih semua (ditapis)</button>
+          <span class="mini" id="r_kira" style="font-weight:700;color:var(--brand-deep);white-space:nowrap;"></span>
+        </div>
+        <div id="r_senarai" style="max-height:230px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:6px;background:var(--surface-2);"></div>
+      </div>
+      <p class="mini" id="r_err" style="color:var(--clay);display:none;"></p>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-primary" id="r_simpan" onclick="simpanRekod()">Simpan Rekod</button>`);
+  renderPilihPensyarah();
+  setTimeout(()=>document.getElementById('r_kursus').focus(),60);
+};
+simpanRekod=function(){
+  if(MOD_PAPAR) return;
+  const thn=+document.getElementById('r_thn').value;
+  const kat=document.getElementById('r_kat').value;
+  const kursus=document.getElementById('r_kursus').value.trim();
+  const tag=normalTag(document.getElementById('r_tag').value);
+  const catatan=document.getElementById('r_catatan').value.trim();
+  const tarikh=document.getElementById('r_tarikh').value||'';
+  let tarikhTamat=document.getElementById('r_tarikhTamat').value||'';
+  const jam=parseFloat(document.getElementById('r_jam').value);
+  const err=document.getElementById('r_err');
+  const ralat=(m)=>{ err.textContent=m; err.style.display='block'; };
+  if(!kursus){ ralat('Sila isi nama kursus atau bengkel.'); return; }
+  if(!(jam>0)){ ralat('Sila isi jam CPD (lebih daripada 0).'); return; }
+  if(tarikh && !tarikhTamat) tarikhTamat=tarikh;
+  if(tarikh && tarikhTamat && tarikhTamat<tarikh){ ralat('Tarikh tamat tidak boleh lebih awal daripada tarikh mula.'); return; }
+  if(rekodPilih.size===0){ ralat('Sila pilih sekurang-kurangnya seorang pensyarah.'); return; }
+  let bil=0;
+  rekodPilih.forEach(pid=>{ DB.rekod.push({id:nextRid(),pid,tahun:thn,tarikh,tarikhTamat,kategori:kat,kursus,tag,catatan,jam}); bil++; });
+  terapkanProgram(thn,kursus,tag,catatan);
+  if(thn!==DB.tahunSemasa){ DB.tahunSemasa=thn; refreshYearSel(); }
+  saveDB(); closeModal(); render();
+  toast(bil>1?('Rekod latihan ditambah untuk '+bil+' pensyarah.'):'Rekod latihan ditambah.');
+};
+
+/* ---------- Borang sunting rekod ---------- */
+openEditRekod=function(rid){
+  if(MOD_PAPAR) return;
+  const r=DB.rekod.find(x=>x.id===rid); if(!r) return;
+  const p=DB.pensyarah.find(x=>x.id===r.pid)||{nama:'-'};
+  const kursusSedia=[...new Set(DB.rekod.map(x=>x.kursus))].filter(Boolean).sort();
+  const tagSedia=senaraiTag(null).map(t=>t.replace(/^#/,''));
+  openModal('Sunting Rekod Latihan','Kemas kini program dan data latihan bagi '+p.nama+'.',`
+    <div style="display:grid;gap:14px;">
+      <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;">
+        <div><label class="fld">Kategori program</label><select id="e_kat">${optionsKat(r.kategori)}</select></div>
+        <div><label class="fld">Tahun</label><select id="e_thn">${optionsTahun(r.tahun)}</select></div>
+      </div>
+      <div>
+        <label class="fld">Nama kursus / bengkel</label>
+        <input type="text" id="e_kursus" list="kursusListEdit" value="${esc(r.kursus)}" autocomplete="off">
+        <datalist id="kursusListEdit">${kursusSedia.map(k=>`<option value="${esc(k)}">`).join('')}</datalist>
+      </div>
+      <div>
+        <label class="fld">Hashtag fokus / tema</label>
+        <input type="text" id="e_tag" list="tagListEdit" value="${esc(String(r.tag||'').replace(/#/g,''))}" placeholder="cth. OBE, rubrik" autocomplete="off">
+        <datalist id="tagListEdit">${tagSedia.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+        <div class="mini" style="margin-top:5px;line-height:1.5;">Hashtag dan catatan akan diselaraskan kepada semua peserta program yang sama pada tahun ini.</div>
+      </div>
+      <div>
+        <label class="fld">Catatan ringkas program</label>
+        <textarea id="e_catatan" rows="2" placeholder="Pengenalan ringkas bengkel atau latihan ini.">${esc(r.catatan||'')}</textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div><label class="fld">Tarikh mula</label><input type="date" id="e_tarikh" value="${esc(r.tarikh||'')}" onchange="selaraskanTahunEdit()"></div>
+        <div><label class="fld">Tarikh tamat</label><input type="date" id="e_tarikhTamat" value="${esc(r.tarikhTamat||'')}"></div>
+        <div><label class="fld">Jam CPD</label><input type="number" id="e_jam" min="0" step="0.5" value="${r.jam}"></div>
+      </div>
+      <p class="mini" id="e_err" style="color:var(--clay);display:none;"></p>
+    </div>`,
+    `<button class="btn btn-danger" style="margin-right:auto;" onclick="hapusRekod(${r.id});closeModal();">Padam</button>
+     <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-primary" onclick="simpanEditRekod(${r.id})">Simpan</button>`);
+  setTimeout(()=>document.getElementById('e_kursus').focus(),60);
+};
+simpanEditRekod=function(rid){
+  if(MOD_PAPAR) return;
+  const r=DB.rekod.find(x=>x.id===rid); if(!r) return;
+  const kat=document.getElementById('e_kat').value;
+  const thn=+document.getElementById('e_thn').value;
+  const kursus=document.getElementById('e_kursus').value.trim();
+  const tag=normalTag(document.getElementById('e_tag').value);
+  const catatan=document.getElementById('e_catatan').value.trim();
+  const tarikh=document.getElementById('e_tarikh').value||'';
+  let tarikhTamat=document.getElementById('e_tarikhTamat').value||'';
+  const jam=parseFloat(document.getElementById('e_jam').value);
+  const err=document.getElementById('e_err'); const ralat=(m)=>{ err.textContent=m; err.style.display='block'; };
+  if(!kursus){ ralat('Sila isi nama kursus atau bengkel.'); return; }
+  if(!(jam>0)){ ralat('Sila isi jam CPD (lebih daripada 0).'); return; }
+  if(tarikh && !tarikhTamat) tarikhTamat=tarikh;
+  if(tarikh && tarikhTamat && tarikhTamat<tarikh){ ralat('Tarikh tamat tidak boleh lebih awal daripada tarikh mula.'); return; }
+  Object.assign(r,{kategori:kat,tahun:thn,kursus,tarikh,tarikhTamat,tag,catatan,jam});
+  terapkanProgram(thn,kursus,tag,catatan);
+  if(thn!==DB.tahunSemasa){ DB.tahunSemasa=thn; refreshYearSel(); }
+  saveDB(); closeModal(); render();
+  toast('Rekod latihan dikemas kini.');
+};
+
+/* ---------- Import & eksport ---------- */
+doImport=function(){
+  if(MOD_PAPAR) return;
+  const f=document.getElementById('imp_file').files[0];
+  if(!f){ document.getElementById('imp_msg').innerHTML='<span style="color:var(--clay)">Sila pilih fail.</span>'; return; }
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const rows=parseCSV(rd.result);
+      if(!rows.length) throw new Error('kosong');
+      const head=rows[0].map(h=>h.toLowerCase().trim());
+      const idx=n=>head.findIndex(h=>h.includes(n));
+      const iN=idx('nama'),iF=idx('fakulti'),iJw=idx('jawatan'),iS=idx('status'),iT=idx('tahun'),iTk=idx('tarikh'),iTkT=idx('tamat'),iK=idx('kategori'),iKu=idx('kursus'),iJ=idx('jam'),iTg=idx('hashtag'),iC=idx('catatan');
+      if(iN<0||iT<0||iJ<0) throw new Error('lajur Nama/Tahun/Jam tidak dijumpai');
+      let add=0, np=0;
+      const fmap=new Map(DB.pensyarah.map(p=>[norm(p.nama),p]));
+      for(let r=1;r<rows.length;r++){
+        const row=rows[r]; if(!row[iN]) continue;
+        const nama=bersihNama(row[iN]); const key=norm(nama);
+        let p=fmap.get(key);
+        if(!p){ p={id:nextPid(),nama,fakulti:(iF>=0&&FAK_NAMA[row[iF]])?row[iF]:'PPT',jawatan:iJw>=0?(row[iJw]||'Pensyarah'):'Pensyarah',status:iS>=0?row[iS]:''}; DB.pensyarah.push(p); fmap.set(key,p); np++; }
+        const thn=parseInt(row[iT],10); const jam=parseFloat(row[iJ]);
+        if(!thn||!(jam>0)) continue;
+        const kat=(iK>=0&&KAT.includes(row[iK]))?row[iK]:'Lain-lain';
+        const kursus=iKu>=0?(row[iKu]||'Latihan CPD'):'Latihan CPD';
+        const tarikh=iTk>=0?String(row[iTk]||'').slice(0,10):'';
+        const tarikhTamat=iTkT>=0?String(row[iTkT]||'').slice(0,10):tarikh;
+        const tag=iTg>=0?normalTag(row[iTg]):'';
+        const catatan=iC>=0?String(row[iC]||'').trim():'';
+        DB.rekod.push({id:nextRid(),pid:p.id,tahun:thn,tarikh,tarikhTamat,kategori:kat,kursus,tag,catatan,jam});
+        pastikanDalamRoster(p.id, thn, {fakulti:p.fakulti, jawatan:p.jawatan, status:p.status});
+        if(!DB.tahunSenarai.includes(thn)) DB.tahunSenarai.push(thn);
+        add++;
+      }
+      saveDB(); refreshYearSel(); closeModal(); render();
+      toast(`Import selesai: ${add} rekod, ${np} pensyarah baharu.`);
+    }catch(e){ document.getElementById('imp_msg').innerHTML='<span style="color:var(--clay)">Gagal import: '+esc(e.message)+'</span>'; }
+  };
+  rd.readAsText(f);
+};
+downloadTemplate=function(){
+  const thn=DB.tahunSemasa;
+  const h=['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh Mula','Tarikh Tamat','Kategori','Kursus','Hashtag','Catatan','Jam'];
+  const ex=[
+    ['Dr. Ahmad bin Ismail','FPIB','Pensyarah','Tetap',thn,thn+'-04-28',thn+'-04-29','Pembangunan Staf Akademik','Bengkel Pembangunan Manual Soalan','#pentaksiran #JSU','Pembinaan manual penyediaan soalan peperiksaan selaras OBE.','12'],
+    ['Dr. Ahmad bin Ismail','FPIB','Pensyarah','Tetap',thn,thn+'-06-03',thn+'-06-03','Pembangunan Koordinator Program','Bengkel Pemerkasaan Koordinator Program','#OBE #kurikulum','Pemantapan peranan koordinator program.','4'],
+    ['Nurul binti Hassan','FSM','Pensyarah','Kontrak',thn,thn+'-09-02',thn+'-09-03','Kerjasama Fakulti','Retreat Akademik','#kepimpinan','Retreat perancangan strategik akademik.','8'],
+  ];
+  downloadFile('templat_penyertaan_cpd.csv',[h,...ex].map(r=>r.map(csvEscape).join(',')).join('\n'));
+  toast('Templat kosong dimuat turun.');
+};
+downloadTemplatePensyarah=function(){
+  const thn=DB.tahunSemasa;
+  const h=['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh Mula','Tarikh Tamat','Kategori','Kursus','Hashtag','Catatan','Jam'];
+  const rows=[h];
+  DB.pensyarah.slice().sort((a,b)=>FAK_ORDER.indexOf(a.fakulti)-FAK_ORDER.indexOf(b.fakulti)||a.nama.localeCompare(b.nama))
+    .forEach(p=>rows.push([p.nama,p.fakulti,p.jawatan,p.status,thn,'','','','','','','']));
+  downloadFile('templat_penyertaan_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
+  toast('Templat berserta '+DB.pensyarah.length+' pensyarah dimuat turun.');
+};
+exportCSV=function(jenis){
+  const thn=DB.tahunSemasa;
+  let rows;
+  if(jenis==='terperinci'){
+    rows=[['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Tarikh Mula','Tarikh Tamat','Kategori','Kursus','Hashtag','Catatan','Jam']];
+    DB.rekod.filter(r=>r.tahun===thn).sort((a,b)=>a.pid-b.pid).forEach(r=>{
+      const p=DB.pensyarah.find(x=>x.id===r.pid)||{};
+      rows.push([p.nama,p.fakulti,p.jawatan,p.status,r.tahun,r.tarikh||'',r.tarikhTamat||'',r.kategori,r.kursus,r.tag||'',r.catatan||'',r.jam]);
+    });
+  }else{
+    rows=[['Bil','Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Jumlah Jam CPD','Sasaran','Jurang','Status']];
+    pensyarahAktif(thn).map(p=>({p,jam:jamPensyarah(p.id,thn)})).sort((a,b)=>b.jam-a.jam).forEach((r,i)=>{
+      rows.push([i+1,r.p.nama,r.p.fakulti,r.p.jawatan,r.p.status,thn,fmt(r.jam),DB.sasaran,fmt(Math.max(0,DB.sasaran-r.jam)),TIER_LBL[tier(r.jam)]]);
+    });
+  }
+  downloadFile(`cpd_${jenis}_${thn}.csv`,rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
+  toast('CSV '+jenis+' dimuat turun.');
+};
+
+/* ---------- Laporan ---------- */
+laporanProgramPDF=function(kategoriPilih, kursusPilih){
+  if(typeof window.jspdf==='undefined'){ toast('Penjana PDF memerlukan sambungan internet.'); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF('p','mm','a4'); const thn=DB.tahunSemasa;
+  const semua=kategoriPilih==='semua'; kursusPilih=kursusPilih||'semua'; const satuKursus=kursusPilih!=='semua';
+  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih) && (!satuKursus||r.kursus===kursusPilih))
+    .map(r=>({r,p:pensyarahThn(r.pid, r.tahun)}));
+  const katSenarai=KAT.filter(k=>recs.some(x=>x.r.kategori===k));
+  const kursusSenarai=[...new Set(recs.map(x=>x.r.kursus))];
+  const jamKursus={}; kursusSenarai.forEach(k=>{ jamKursus[k]=Math.max(0,...recs.filter(x=>x.r.kursus===k).map(x=>+x.r.jam||0)); });
+  const pesertaUnik=new Set(recs.map(x=>x.r.pid)).size;
+  const jumlahJamCPD=kursusSenarai.reduce((a,k)=>a+(jamKursus[k]||0),0);
+  lapHeaderPDF(doc,'Laporan Program Latihan CPD','Tahun '+thn+' · '+(semua?'Semua kategori':kategoriPilih)+(satuKursus?' · 1 program dipilih':''));
+  lapKadPDF(doc,[['Jumlah Program',kursusSenarai.length],['Penyertaan',recs.length],['Peserta Unik',pesertaUnik],['Jumlah Jam CPD',fmt(jumlahJamCPD)]],36);
+  doc.setFontSize(7);doc.setTextColor(120);doc.setFont('helvetica','normal');
+  doc.text('Jam CPD program ialah nilai jam bagi program tersebut. Lajur Jam CPD peserta menunjukkan jam yang diperoleh setiap peserta.',14,58);
+  const body=[];
+  katSenarai.forEach(kat=>{
+    const recsKat=recs.filter(x=>x.r.kategori===kat);
+    body.push([{content:kat.toUpperCase(),colSpan:5,styles:{fillColor:[19,98,84],textColor:255,fontStyle:'bold',halign:'left',fontSize:8.5}}]);
+    [...new Set(recsKat.map(x=>x.r.kursus))].sort((a,b)=>a.localeCompare(b)).forEach(kursus=>{
+      const parts=recsKat.filter(x=>x.r.kursus===kursus)
+        .sort((a,b)=>FAK_ORDER.indexOf(a.p.fakulti)-FAK_ORDER.indexOf(b.p.fakulti)||(a.p.nama||'').localeCompare(b.p.nama||''));
+      const meta=tagKursus(thn,kursus);
+      body.push([{content:kursus+'   (Jam CPD: '+fmt(jamKursus[kursus])+' jam · '+parts.length+' peserta)'+(meta.tag?('   '+meta.tag):''),colSpan:5,styles:{fillColor:[240,238,228],textColor:[70,55,20],fontStyle:'bold',fontSize:8}}]);
+      if(meta.catatan) body.push([{content:'Catatan: '+meta.catatan,colSpan:5,styles:{fillColor:[250,249,243],textColor:[110,110,110],fontStyle:'italic',fontSize:7.5}}]);
+      parts.forEach((x,i)=>body.push([i+1,x.p.nama,x.p.fakulti,fmtJulatTarikh(x.r.tarikh,x.r.tarikhTamat)||'-',fmt(x.r.jam)]));
+    });
+  });
+  doc.autoTable({ startY:62, head:[['Bil','Nama Peserta','Fakulti','Tarikh','Jam CPD']], body,
+    styles:{font:'helvetica',fontSize:8,cellPadding:2,textColor:40}, headStyles:{fillColor:[12,69,58],textColor:255,fontSize:8.2},
+    columnStyles:{0:{cellWidth:11,halign:'center'},2:{cellWidth:20},3:{cellWidth:42},4:{halign:'right',cellWidth:18}},
+    didDrawPage:lapFooterPDF(doc) });
+  doc.save('Laporan_Program_'+thn+'.pdf'); toast('Laporan program (PDF) dijana.');
+};
+laporanProgramCSV=function(kategoriPilih, kursusPilih){
+  const thn=DB.tahunSemasa; const semua=kategoriPilih==='semua'; kursusPilih=kursusPilih||'semua'; const satuKursus=kursusPilih!=='semua';
+  const recs=DB.rekod.filter(r=>r.tahun===thn && (semua||r.kategori===kategoriPilih) && (!satuKursus||r.kursus===kursusPilih))
+    .map(r=>({r,p:pensyarahThn(r.pid, r.tahun)}));
+  const jamKursus={}; [...new Set(recs.map(x=>x.r.kursus))].forEach(k=>{ jamKursus[k]=Math.max(0,...recs.filter(x=>x.r.kursus===k).map(x=>+x.r.jam||0)); });
+  recs.sort((a,b)=>KAT.indexOf(a.r.kategori)-KAT.indexOf(b.r.kategori)
+    ||(a.r.kursus||'').localeCompare(b.r.kursus||'')
+    ||FAK_ORDER.indexOf(a.p.fakulti)-FAK_ORDER.indexOf(b.p.fakulti)
+    ||(a.p.nama||'').localeCompare(b.p.nama||''));
+  const rows=[['Kategori','Kursus / Bengkel','Hashtag','Catatan','Jam CPD Program','Nama Peserta','Fakulti','Jawatan','Status Jawatan','Tarikh Mula','Tarikh Tamat','Jam CPD Peserta']];
+  recs.forEach(x=>rows.push([x.r.kategori||'',x.r.kursus||'',x.r.tag||'',x.r.catatan||'',fmt(jamKursus[x.r.kursus]||0),x.p.nama||'-',x.p.fakulti||'-',x.p.jawatan||'',x.p.status||'',x.r.tarikh||'',x.r.tarikhTamat||'',fmt(x.r.jam)]));
+  downloadFile('Laporan_Program_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
+  toast('Laporan program (CSV) dimuat turun.');
+};
+const _lapIndivPDF=laporanIndividuPDF;
+laporanIndividuPDF=function(pid){
+  if(typeof window.jspdf==='undefined'){ toast('Penjana PDF memerlukan sambungan internet.'); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF('p','mm','a4'); const thn=DB.tahunSemasa;
+  const p=pensyarahThn(pid, thn);
+  const recs=DB.rekod.filter(r=>r.pid===pid && r.tahun===thn)
+    .slice().sort((a,b)=>(a.tarikh||'').localeCompare(b.tarikh||'')||KAT.indexOf(a.kategori)-KAT.indexOf(b.kategori));
+  const jam=recs.reduce((a,r)=>a+(+r.jam||0),0);
+  lapHeaderPDF(doc,'Laporan CPD Individu','Tahun '+thn+' · Sasaran '+DB.sasaran+' jam');
+  doc.setFontSize(7.5);doc.setTextColor(120);doc.setFont('helvetica','normal');doc.text('PENSYARAH',14,38);
+  doc.setFontSize(12);doc.setTextColor(19,98,84);doc.setFont('helvetica','bold');
+  const namaLines=doc.splitTextToSize(p.nama+(p.jawatan?('  ('+p.jawatan+')'):''),182);
+  doc.text(namaLines,14,44);
+  const yFak=44+namaLines.length*5+1;
+  doc.setFontSize(8.5);doc.setTextColor(90);doc.setFont('helvetica','normal');
+  doc.text((FAK_NAMA[p.fakulti]||p.fakulti),14,yFak);
+  const yCards=yFak+5;
+  lapKadPDF(doc,[['Jumlah Jam CPD',fmt(jam)],['Sasaran',fmt(DB.sasaran)],['Jurang',fmt(Math.max(0,DB.sasaran-jam))],['Status',TIER_LBL[tier(jam)]]],yCards);
+  if(recs.length){
+    const body=recs.map((r,i)=>[i+1,r.kategori,r.kursus+(r.tag?('\n'+r.tag):'')+(r.catatan?('\n'+r.catatan):''),fmtJulatTarikh(r.tarikh,r.tarikhTamat)||'-',fmt(r.jam)]);
+    doc.autoTable({ startY:yCards+22, head:[['Bil','Kategori','Kursus / Bengkel','Tarikh','Jam CPD']], body,
+      styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:40}, headStyles:{fillColor:[12,69,58],textColor:255,fontSize:8.2},
+      alternateRowStyles:{fillColor:[250,249,243]}, columnStyles:{0:{cellWidth:11,halign:'center'},1:{cellWidth:40},3:{cellWidth:34},4:{halign:'right',cellWidth:16}},
+      didDrawPage:lapFooterPDF(doc) });
+  } else {
+    doc.setFontSize(9.5);doc.setTextColor(150);doc.setFont('helvetica','normal');
+    doc.text('Tiada rekod latihan bagi pensyarah ini pada tahun '+thn+'.',14,yCards+28);
+    lapFooterPDF(doc)();
+  }
+  doc.save('Laporan_Individu_'+thn+'.pdf'); toast('Laporan individu (PDF) dijana.');
+};
+laporanIndividuCSV=function(pid){
+  const thn=DB.tahunSemasa;
+  const p=pensyarahThn(pid, thn);
+  const recs=DB.rekod.filter(r=>r.pid===pid && r.tahun===thn)
+    .slice().sort((a,b)=>(a.tarikh||'').localeCompare(b.tarikh||'')||KAT.indexOf(a.kategori)-KAT.indexOf(b.kategori));
+  const rows=[['Nama','Fakulti','Jawatan','Status Jawatan','Tahun','Bil','Kategori','Kursus / Bengkel','Hashtag','Catatan','Tarikh Mula','Tarikh Tamat','Jam CPD']];
+  if(!recs.length){ rows.push([p.nama||'-',p.fakulti||'-',p.jawatan||'',p.status||'',thn,'','(Tiada rekod)','','','','','','']); }
+  recs.forEach((r,i)=>rows.push([p.nama||'-',p.fakulti||'-',p.jawatan||'',p.status||'',thn,i+1,r.kategori||'',r.kursus||'',r.tag||'',r.catatan||'',r.tarikh||'',r.tarikhTamat||'',fmt(r.jam)]));
+  downloadFile('Laporan_Individu_'+thn+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'));
+  toast('Laporan individu (CSV) dimuat turun.');
+};
+render();
+/* ================ TAMAT TAMBAHAN HASHTAG & CATATAN ================ */
 </script>
 </body>
 </html>
